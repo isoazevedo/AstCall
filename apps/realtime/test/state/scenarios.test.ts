@@ -12,6 +12,7 @@ const FIXTURES = [
   '03-transferencia-cega.jsonl',
   '04-transferencia-assistida.jsonl',
   '05-fila.jsonl',
+  '07-espera-e-retomada.jsonl',
 ];
 
 describe('invariantes de todas as gravações de chamada', () => {
@@ -160,6 +161,21 @@ describe('cenário 5: chamada em fila', () => {
     const call = snapshot.calls[0]!;
     expect(call.status).toBe('talking');
     expect(linksByName(snapshot, call.id)).toEqual([['PJSIP/9001', 'PJSIP/9002']]);
+  });
+});
+
+describe('cenário 7: espera e retomada (gravado com o usuário AMI restrito)', () => {
+  const events = loadFixture('07-espera-e-retomada.jsonl');
+
+  it('passa por em conversa → em espera → em conversa', () => {
+    const talking = replay(events, { until: at('BridgeEnter', 'PJSIP/9002') }).snapshot;
+    const held = replay(events, { until: at('Hold') }).snapshot;
+    const resumed = replay(events, { until: at('Unhold') }).snapshot;
+    expect(talking.calls[0]?.status).toBe('talking');
+    expect(held.calls[0]?.status).toBe('held');
+    expect(resumed.calls[0]?.status).toBe('talking');
+    expect(resumed.calls[0]?.recording).toBe(true);
+    expect(linksByName(resumed, resumed.calls[0]!.id)).toEqual([['PJSIP/9001', 'PJSIP/9002']]);
   });
 });
 
