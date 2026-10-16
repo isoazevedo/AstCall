@@ -1,4 +1,12 @@
-import type { Bridge, Call, Channel, Endpoint } from './entities.js';
+import type {
+  Bridge,
+  Call,
+  Channel,
+  Endpoint,
+  Queue,
+  QueueEntry,
+  QueueMember,
+} from './entities.js';
 
 /** Tipos de entidade do estado e o formato de cada uma. */
 export interface EntityMap {
@@ -6,6 +14,9 @@ export interface EntityMap {
   channel: Channel;
   bridge: Bridge;
   call: Call;
+  queue: Queue;
+  queueMember: QueueMember;
+  queueEntry: QueueEntry;
 }
 
 export type EntityName = keyof EntityMap;
@@ -26,4 +37,7 @@ export interface ServerSnapshot {
   channels: Channel[];
   bridges: Bridge[];
   calls: Call[];
+  queues: Queue[];
+  queueMembers: QueueMember[];
+  queueEntries: QueueEntry[];
 }

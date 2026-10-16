@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import type { ServerMessage } from '@astcall/shared';
 import { MonitorConnection, type ConnectionState } from '../lib/MonitorConnection';
 import { applyDelta, applySnapshot, createServerState, type ServerState } from '../lib/serverState';
-import { callView, compareEndpointIds, endpointView } from '../lib/view';
+import { callView, compareEndpointIds, endpointView, queueView } from '../lib/view';
 
 /**
  * Store Pinia do painel.
@@ -41,6 +41,18 @@ export const useMonitorStore = defineStore('monitor', () => {
       .map((c) => callView(c, s.channels))
       .sort((a, b) => a.startedAt - b.startedAt);
   });
+
+  /** Filas do servidor ativo, em ordem alfabética, com membros e chamadores aguardando. */
+  const queues = computed(() => {
+    const s = active.value;
+    if (!s) return [];
+    return Object.values(s.queues)
+      .map((q) => queueView(q, s.queueMembers, s.queueEntries))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  });
+
+  /** Total de chamadores aguardando em todas as filas. */
+  const waitingTotal = computed(() => Object.keys(active.value?.queueEntries ?? {}).length);
 
   /** Dados na tela podem estar desatualizados (sem conexão ou sincronizando). */
   const stale = computed(
@@ -116,6 +128,8 @@ export const useMonitorStore = defineStore('monitor', () => {
     active,
     endpoints,
     calls,
+    queues,
+    waitingTotal,
     stale,
     connect,
     disconnect,

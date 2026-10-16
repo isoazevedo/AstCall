@@ -4,6 +4,9 @@ import type {
   Channel,
   DeltaMessage,
   Endpoint,
+  Queue,
+  QueueEntry,
+  QueueMember,
   ServerConnectionStatus,
   ServerInfo,
   SnapshotMessage,
@@ -25,6 +28,9 @@ export interface ServerState {
   channels: Record<string, Channel>;
   bridges: Record<string, Bridge>;
   calls: Record<string, Call>;
+  queues: Record<string, Queue>;
+  queueMembers: Record<string, QueueMember>;
+  queueEntries: Record<string, QueueEntry>;
 }
 
 export function createServerState(info: ServerInfo): ServerState {
@@ -39,6 +45,9 @@ export function createServerState(info: ServerInfo): ServerState {
     channels: {},
     bridges: {},
     calls: {},
+    queues: {},
+    queueMembers: {},
+    queueEntries: {},
   };
 }
 
@@ -53,6 +62,9 @@ export function applySnapshot(state: ServerState, msg: SnapshotMessage): void {
   state.channels = byKey(msg.data.channels, (c) => c.uniqueid);
   state.bridges = byKey(msg.data.bridges, (b) => b.id);
   state.calls = byKey(msg.data.calls, (c) => c.id);
+  state.queues = byKey(msg.data.queues ?? [], (q) => q.name);
+  state.queueMembers = byKey(msg.data.queueMembers ?? [], (m) => m.id);
+  state.queueEntries = byKey(msg.data.queueEntries ?? [], (e) => e.id);
   state.hasSnapshot = true;
 }
 
@@ -84,5 +96,11 @@ function tableOf(state: ServerState, entity: DeltaMessage['ops'][number]['entity
       return state.bridges as Record<string, unknown>;
     case 'call':
       return state.calls as Record<string, unknown>;
+    case 'queue':
+      return state.queues as Record<string, unknown>;
+    case 'queueMember':
+      return state.queueMembers as Record<string, unknown>;
+    case 'queueEntry':
+      return state.queueEntries as Record<string, unknown>;
   }
 }

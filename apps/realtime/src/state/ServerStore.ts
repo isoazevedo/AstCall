@@ -9,6 +9,9 @@ import type {
   Endpoint,
   EntityMap,
   EntityName,
+  Queue,
+  QueueEntry,
+  QueueMember,
   ServerSnapshot,
 } from '@astcall/shared';
 
@@ -30,11 +33,17 @@ export class ServerStore extends EventEmitter<StoreEvents> {
   readonly channels = new Map<string, Channel>();
   readonly bridges = new Map<string, Bridge>();
   readonly calls = new Map<string, Call>();
+  readonly queues = new Map<string, Queue>();
+  /** Chave: "<fila>|<interface>". */
+  readonly queueMembers = new Map<string, QueueMember>();
+  /** Chave: "<fila>|<uniqueid>". */
+  readonly queueEntries = new Map<string, QueueEntry>();
 
   // Índices auxiliares
   private readonly byLinkedid = new Map<string, Set<string>>();
   private readonly byEndpoint = new Map<string, Set<string>>();
   private readonly hungUp = new Set<string>();
+  private readonly counted = new Set<string>();
 
   // O que mudou desde o último flush()
   private readonly dirty = {
@@ -42,6 +51,9 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     channel: new Set<string>(),
     bridge: new Set<string>(),
     call: new Set<string>(),
+    queue: new Set<string>(),
+    queueMember: new Set<string>(),
+    queueEntry: new Set<string>(),
   };
 
   /** Última versão enviada de cada entidade ("entidade:id" → JSON), para evitar deltas repetidos. */
@@ -96,6 +108,10 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     const ch = this.channels.get(uniqueid);
     if (!ch) return;
     if (ch.bridgeId) this.removeFromBridge(ch.bridgeId, uniqueid);
+    // Desligou sem QueueCallerLeave (ex.: evento perdido): sai das filas também
+    for (const entry of [...this.queueEntries.values()]) {
+      if (entry.uniqueid === uniqueid) this.removeEntry(entry.queue, uniqueid);
+    }
     this.touchChannel(ch);
     this.channels.delete(uniqueid);
     this.unindex(this.byLinkedid, ch.linkedid, uniqueid);
@@ -182,6 +198,157 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     ep.contacts = ep.contacts.filter((c) => c.uri !== uri);
   }
 
+  // ---------------------------------------------------------------- filas
+
+  ensureQueue(name: string): Queue {
+    let q = this.queues.get(name);
+    if (!q) {
+      q = {
+        name,
+        strategy: '',
+        max: 0,
+        completed: 0,
+        abandoned: 0,
+        holdtime: 0,
+        talktime: 0,
+        serviceLevel: 0,
+        serviceLevelPerf: 0,
+        weight: 0,
+      };
+      this.queues.set(name, q);
+    }
+    this.dirty.queue.add(name);
+    return q;
+  }
+
+  /** Remove a fila e tudo o que pertence a ela. */
+  removeQueue(name: string): void {
+    for (const m of [...this.queueMembers.values()]) if (m.queue === name) this.removeMember(m.id);
+    for (const e of [...this.queueEntries.values()])
+      if (e.queue === name) this.removeEntry(name, e.uniqueid);
+    this.queues.delete(name);
+    this.dirty.queue.add(name);
+  }
+
+  /**
+   * Cria ou atualiza um membro. A pausa é rastreada aqui: ao pausar, `pausedSince` recebe o
+   * horário informado (ou `ts`); ao despausar, volta a null.
+   */
+  upsertMember(queue: string, iface: string, patch: Partial<QueueMember>, ts: number): QueueMember {
+    this.ensureQueue(queue);
+    const id = `${queue}|${iface}`;
+    let m = this.queueMembers.get(id);
+    if (!m) {
+      m = {
+        id,
+        queue,
+        interface: iface,
+        name: iface,
+        endpointId: endpointFromInterface(iface),
+        status: 'UNKNOWN',
+        paused: false,
+        pausedReason: '',
+        pausedSince: null,
+        inCall: false,
+        callsTaken: 0,
+        lastCall: null,
+        penalty: 0,
+        membership: 'static',
+      };
+      this.queueMembers.set(id, m);
+    }
+    const wasPaused = m.paused;
+    for (const [key, value] of Object.entries(patch)) {
+      if (value !== undefined) (m as unknown as Record<string, unknown>)[key] = value;
+    }
+    if (!m.paused) {
+      m.pausedSince = null;
+      m.pausedReason = '';
+    } else if (!wasPaused && patch.pausedSince === undefined) {
+      m.pausedSince = ts;
+    }
+    this.dirty.queueMember.add(id);
+    return m;
+  }
+
+  removeMember(id: string): void {
+    this.queueMembers.delete(id);
+    this.dirty.queueMember.add(id);
+  }
+
+  /** Chamador entrou (ou atualizou) na fila. Marca o canal como "na fila". */
+  upsertEntry(
+    queue: string,
+    uniqueid: string,
+    patch: Partial<Pick<QueueEntry, 'channel' | 'callerId' | 'position' | 'joinedAt'>>,
+    ts: number,
+  ): QueueEntry {
+    this.ensureQueue(queue);
+    const id = `${queue}|${uniqueid}`;
+    let e = this.queueEntries.get(id);
+    if (!e) {
+      e = {
+        id,
+        queue,
+        uniqueid,
+        channel: '',
+        callerId: { num: '', name: '' },
+        position: 0,
+        joinedAt: ts,
+      };
+      this.queueEntries.set(id, e);
+    }
+    for (const [key, value] of Object.entries(patch)) {
+      if (value !== undefined) (e as unknown as Record<string, unknown>)[key] = value;
+    }
+    const ch = this.channels.get(uniqueid);
+    if (ch) {
+      ch.queue = queue;
+      ch.inQueue = true;
+      this.touchChannel(ch);
+    }
+    this.dirty.queueEntry.add(id);
+    return e;
+  }
+
+  /**
+   * Chamador saiu da fila (atendido, abandonou ou expirou). Os que estavam atrás dele sobem
+   * uma posição — o Asterisk não envia evento para os demais.
+   */
+  removeEntry(queue: string, uniqueid: string): QueueEntry | undefined {
+    const id = `${queue}|${uniqueid}`;
+    const e = this.queueEntries.get(id);
+    if (!e) return undefined;
+    this.queueEntries.delete(id);
+    this.dirty.queueEntry.add(id);
+    for (const other of this.queueEntries.values()) {
+      if (other.queue === queue && other.position > e.position) {
+        other.position--;
+        this.dirty.queueEntry.add(other.id);
+      }
+    }
+    const ch = this.channels.get(uniqueid);
+    if (ch) {
+      ch.inQueue = false;
+      this.touchChannel(ch);
+    }
+    return e;
+  }
+
+  /**
+   * Retorna true só na primeira vez que `key` é vista. Usado para contadores incrementados
+   * por eventos (atendidas, abandonadas) continuarem idempotentes se um evento se repetir.
+   */
+  firstTime(key: string): boolean {
+    if (this.counted.has(key)) return false;
+    this.counted.add(key);
+    if (this.counted.size > HUNG_UP_MEMORY * 5) {
+      const oldest = this.counted.values().next().value;
+      if (oldest !== undefined) this.counted.delete(oldest);
+    }
+    return true;
+  }
+
   // ---------------------------------------------------------------- ciclo
 
   /**
@@ -200,6 +367,9 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     this.collect('bridge', this.bridges, ops);
     this.collect('call', this.calls, ops);
     this.collect('endpoint', this.endpoints, ops);
+    this.collect('queue', this.queues, ops);
+    this.collect('queueMember', this.queueMembers, ops);
+    this.collect('queueEntry', this.queueEntries, ops);
     if (ops.length > 0) this.emit('deltas', ops);
     return ops;
   }
@@ -211,6 +381,9 @@ export class ServerStore extends EventEmitter<StoreEvents> {
       channels: [...this.channels.values()],
       bridges: [...this.bridges.values()],
       calls: [...this.calls.values()],
+      queues: [...this.queues.values()],
+      queueMembers: [...this.queueMembers.values()],
+      queueEntries: [...this.queueEntries.values()],
     });
   }
 
@@ -220,9 +393,13 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     this.channels.clear();
     this.bridges.clear();
     this.calls.clear();
+    this.queues.clear();
+    this.queueMembers.clear();
+    this.queueEntries.clear();
     this.byLinkedid.clear();
     this.byEndpoint.clear();
     this.hungUp.clear();
+    this.counted.clear();
     this.emitted.clear();
     for (const set of Object.values(this.dirty)) set.clear();
   }
@@ -257,6 +434,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
       status: computeStatus(chans, links),
       links,
       recording: chans.some((c) => c.recording),
+      queue: chans.find((c) => c.queue)?.queue ?? null,
       startedAt: Math.min(...chans.map((c) => c.createdAt)),
       answeredAt: answered.length > 0 ? Math.min(...answered) : null,
     });
@@ -324,6 +502,8 @@ function newChannel(uniqueid: string, name: string, linkedid: string, ts: number
     dialStatus: null,
     onHold: false,
     recording: false,
+    queue: null,
+    inQueue: false,
     createdAt: ts,
     answeredAt: null,
   };
@@ -332,6 +512,12 @@ function newChannel(uniqueid: string, name: string, linkedid: string, ts: number
 /** "PJSIP/9001-0000002c" → "9001". Outras tecnologias (Local etc.) → null. */
 export function endpointFromChannelName(name: string): string | null {
   const m = /^PJSIP\/(.+)-[0-9a-f]+$/i.exec(name);
+  return m?.[1] ?? null;
+}
+
+/** Interface de membro de fila → endpoint: "PJSIP/9001" → "9001"; "Local/9001@ctx/n" → "9001". */
+export function endpointFromInterface(iface: string): string | null {
+  const m = /^PJSIP\/([^/]+)$/i.exec(iface) ?? /^Local\/([^@]+)@/i.exec(iface);
   return m?.[1] ?? null;
 }
 
@@ -384,6 +570,8 @@ function computeLinks(chans: Channel[]): string[][] {
 function computeStatus(chans: Channel[], links: string[][]): CallStatus {
   if (links.length > 0) return chans.some((c) => c.onHold) ? 'held' : 'talking';
   if (chans.some((c) => c.state === 'Ringing' || c.dialStatus === 'RINGING')) return 'ringing';
+  // Aguardando na fila (ouvindo música) e nenhum membro tocando agora
+  if (chans.some((c) => c.inQueue)) return 'queued';
   if (chans.some((c) => c.dialStatus === 'DIALING' || c.dialStatus === 'PROGRESS'))
     return 'dialing';
   return 'other';

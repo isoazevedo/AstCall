@@ -135,6 +135,7 @@ beforeEach(async () => {
   server.on('devicestatelist', serveList('DeviceStateList', 'DeviceStateListComplete'));
   server.on('bridgelist', serveList('BridgeList', 'BridgeListComplete'));
   server.on('coreshowchannels', serveList('CoreShowChannels', 'CoreShowChannelsComplete'));
+  server.on('queuestatus', serveList('QueueStatus', 'QueueStatusComplete'));
   await server.listen();
 });
 
@@ -237,5 +238,68 @@ describe('Synchronizer', () => {
     });
     await changed;
     expect(store.calls.get('1.1')?.status).toBe('held');
+  });
+
+  it('sincroniza filas e a reconciliação remove o que sumiu (sem remover o que acabou de mudar)', async () => {
+    lists.QueueStatus = [
+      {
+        Event: 'QueueParams',
+        Queue: 'suporte',
+        Strategy: 'ringall',
+        Completed: '3',
+        Abandoned: '1',
+      },
+      { Event: 'QueueMember', Queue: 'suporte', Location: 'PJSIP/9001', Status: '1', Paused: '0' },
+      { Event: 'QueueMember', Queue: 'suporte', Location: 'PJSIP/9002', Status: '5', Paused: '0' },
+      { Event: 'QueueEntry', Queue: 'suporte', Uniqueid: 'q1', Position: '1', Wait: '10' },
+    ];
+    start();
+    await waitSynced(1);
+    expect(store.queues.get('suporte')).toMatchObject({ completed: 3, abandoned: 1 });
+    expect(store.queueMembers.size).toBe(2);
+    expect(store.queueEntries.size).toBe(1);
+
+    // No Asterisk: 9002 saiu da fila e o chamador q1 foi embora sem evento; 9001 agora com 4 atendidas.
+    // Durante a consulta chega um chamador novo (q2) — não pode ser removido.
+    lists.QueueStatus = [
+      {
+        Event: 'QueueParams',
+        Queue: 'suporte',
+        Strategy: 'ringall',
+        Completed: '4',
+        Abandoned: '1',
+      },
+      {
+        Event: 'QueueMember',
+        Queue: 'suporte',
+        Location: 'PJSIP/9001',
+        Status: '1',
+        Paused: '0',
+        CallsTaken: '4',
+      },
+    ];
+    interleave.QueueStatus = [
+      0,
+      {
+        Event: 'QueueCallerJoin',
+        Queue: 'suporte',
+        Uniqueid: 'q2',
+        Linkedid: 'q2',
+        Channel: 'PJSIP/9005-00000009',
+        Position: '1',
+      },
+    ];
+    await sync.refreshQueues();
+    expect(store.queues.get('suporte')?.completed).toBe(4);
+    expect([...store.queueMembers.keys()]).toEqual(['suporte|PJSIP/9001']);
+    expect([...store.queueEntries.keys()]).toEqual(['suporte|q2']);
+  });
+
+  it('servidor sem o módulo de filas: sincroniza o resto normalmente', async () => {
+    lists.QueueStatus = 'error';
+    start();
+    await waitSynced(1);
+    expect(store.channels.size).toBe(2);
+    expect(store.queues.size).toBe(0);
   });
 });

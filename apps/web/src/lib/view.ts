@@ -1,4 +1,13 @@
-import type { Call, CallStatus, Channel, DeviceState, Endpoint } from '@astcall/shared';
+import type {
+  Call,
+  CallStatus,
+  Channel,
+  DeviceState,
+  Endpoint,
+  Queue,
+  QueueEntry,
+  QueueMember,
+} from '@astcall/shared';
 
 /**
  * Funções puras que transformam o estado bruto em dados prontos para a tela
@@ -79,6 +88,8 @@ export interface CallView {
   /** Há mais de um grupo conversando ao mesmo tempo (ex.: consulta numa transferência)? */
   extraGroups: Party[][];
   recording: boolean;
+  /** Fila por onde a chamada passou. */
+  queue: string | null;
   startedAt: number;
   answeredAt: number | null;
 }
@@ -86,6 +97,7 @@ export interface CallView {
 const CALL_STATUS: Record<CallStatus, { label: string; tone: Tone }> = {
   dialing: { label: 'Discando', tone: 'info' },
   ringing: { label: 'Tocando', tone: 'warning' },
+  queued: { label: 'Na fila', tone: 'info' },
   talking: { label: 'Em conversa', tone: 'success' },
   held: { label: 'Em espera', tone: 'info' },
   other: { label: 'Em andamento', tone: 'secondary' },
@@ -125,6 +137,7 @@ export function callView(call: Call, channels: Record<string, Channel>): CallVie
     parties,
     extraGroups,
     recording: call.recording,
+    queue: call.queue ?? null,
     startedAt: call.startedAt,
     answeredAt: call.answeredAt,
   };
@@ -137,4 +150,116 @@ export function formatDuration(totalSeconds: number): string {
   const m = Math.floor((s % 3600) / 60);
   const ss = String(s % 60).padStart(2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+// ------------------------------------------------------------------ filas
+
+/** Limites de espera na fila (segundos) para destacar o chamador. */
+export const WAIT_WARNING_S = 60;
+export const WAIT_DANGER_S = 180;
+
+/** Tom da espera conforme os limites (usado com o relógio ao vivo). */
+export function waitTone(waitSeconds: number): Tone {
+  if (waitSeconds >= WAIT_DANGER_S) return 'danger';
+  if (waitSeconds >= WAIT_WARNING_S) return 'warning';
+  return 'secondary';
+}
+
+export interface QueueMemberView {
+  id: string;
+  /** Ramal (quando identificável) ou o nome/interface do membro. */
+  label: string;
+  interface: string;
+  stateLabel: string;
+  tone: Tone;
+  paused: boolean;
+  pausedReason: string;
+  pausedSince: number | null;
+  inCall: boolean;
+  callsTaken: number;
+  lastCall: number | null;
+  /** Ordem de exibição: disponíveis, em atendimento, pausados, indisponíveis. */
+  rank: number;
+}
+
+export interface QueueView {
+  name: string;
+  strategy: string;
+  completed: number;
+  abandoned: number;
+  holdtime: number;
+  talktime: number;
+  serviceLevel: number;
+  serviceLevelPerf: number;
+  waiting: QueueEntry[];
+  members: QueueMemberView[];
+  available: number;
+  busy: number;
+  paused: number;
+  offline: number;
+}
+
+function memberView(m: QueueMember): QueueMemberView {
+  const d = DEVICE[m.status] ?? DEVICE.UNKNOWN;
+  const offline = d.group === 'offline';
+  const rank = offline ? 3 : m.paused ? 2 : d.group === 'busy' || m.inCall ? 1 : 0;
+  return {
+    id: m.id,
+    label: m.endpointId ?? m.name,
+    interface: m.interface,
+    stateLabel: m.paused && !offline ? 'Pausado' : d.label,
+    tone: m.paused && !offline ? 'warning' : d.tone,
+    paused: m.paused,
+    pausedReason: m.pausedReason,
+    pausedSince: m.pausedSince,
+    inCall: m.inCall,
+    callsTaken: m.callsTaken,
+    lastCall: m.lastCall,
+    rank,
+  };
+}
+
+/** Junta fila, membros e chamadores aguardando numa estrutura pronta para o card. */
+export function queueView(
+  q: Queue,
+  members: Record<string, QueueMember>,
+  entries: Record<string, QueueEntry>,
+): QueueView {
+  const ms = Object.values(members)
+    .filter((m) => m.queue === q.name)
+    .map(memberView)
+    .sort((a, b) => a.rank - b.rank || compareEndpointIds(a.label, b.label));
+  return {
+    name: q.name,
+    strategy: q.strategy,
+    completed: q.completed,
+    abandoned: q.abandoned,
+    holdtime: q.holdtime,
+    talktime: q.talktime,
+    serviceLevel: q.serviceLevel,
+    serviceLevelPerf: q.serviceLevelPerf,
+    waiting: Object.values(entries)
+      .filter((e) => e.queue === q.name)
+      .sort((a, b) => a.position - b.position),
+    members: ms,
+    available: ms.filter((m) => m.rank === 0).length,
+    busy: ms.filter((m) => m.rank === 1).length,
+    paused: ms.filter((m) => m.rank === 2).length,
+    offline: ms.filter((m) => m.rank === 3).length,
+  };
+}
+
+/** Rótulo amigável da estratégia de distribuição. */
+export function strategyLabel(strategy: string): string {
+  const labels: Record<string, string> = {
+    ringall: 'Tocar todos',
+    leastrecent: 'Menos recente',
+    fewestcalls: 'Menos chamadas',
+    random: 'Aleatória',
+    rrmemory: 'Rodízio',
+    rrordered: 'Rodízio ordenado',
+    linear: 'Linear',
+    wrandom: 'Aleatória ponderada',
+  };
+  return labels[strategy] ?? strategy;
 }

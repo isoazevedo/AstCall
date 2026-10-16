@@ -4,6 +4,7 @@ import type { ServerStore } from '../state/ServerStore.js';
 import { bridgeHandlers } from './bridges.js';
 import { channelHandlers } from './channels.js';
 import { endpointHandlers } from './endpoints.js';
+import { queueHandlers } from './queues.js';
 import type { Handler } from './util.js';
 
 /** Tabela evento AMI (em minúsculas) → handler. Eventos fora da tabela são ignorados. */
@@ -11,6 +12,7 @@ export const HANDLERS: Readonly<Record<string, Handler>> = {
   ...channelHandlers,
   ...bridgeHandlers,
   ...endpointHandlers,
+  ...queueHandlers,
 };
 
 /**

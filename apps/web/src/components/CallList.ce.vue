@@ -67,6 +67,7 @@ function duration(call: CallView): string {
               <span v-if="call.recording" class="rec" title="Chamada sendo gravada">
                 <CircleDot :size="14" aria-hidden="true" /> REC
               </span>
+              <div v-if="call.queue" class="via-queue">via fila {{ call.queue }}</div>
             </td>
             <td class="num">{{ duration(call) }}</td>
           </tr>
@@ -134,6 +135,11 @@ function duration(call: CallView): string {
 .link {
   color: var(--ast-text-muted);
   flex-shrink: 0;
+}
+.via-queue {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ast-text-muted);
 }
 .rec {
   display: inline-flex;

@@ -11,11 +11,12 @@
  * - computed: valor derivado, recalculado só quando o que ele usa muda.
  * - watch: reage a mudanças de um valor.
  */
-import { computed, onMounted, onUnmounted, watch } from 'vue';
-import { Radio, Wifi, WifiOff } from 'lucide-vue-next';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { LayoutDashboard, ListOrdered, Radio, Wifi, WifiOff } from 'lucide-vue-next';
 import { useMonitorStore } from '../stores/monitor';
 import CallList from './CallList.ce.vue';
 import EndpointGrid from './EndpointGrid.ce.vue';
+import QueuePanel from './QueuePanel.ce.vue';
 
 const props = withDefaults(defineProps<{ wsUrl?: string; tokenUrl: string }>(), {
   wsUrl: '/monitor-ws',
@@ -49,12 +50,16 @@ const badge = computed(() => {
   return { tone: 'secondary', text: 'Conectando…', icon: Radio };
 });
 
+/** Aba de conteúdo selecionada. */
+const view = ref<'overview' | 'queues'>('overview');
+
 /** Números do topo. */
 const stats = computed(() => {
   const eps = store.endpoints;
   return {
     calls: store.calls.length,
     talking: store.calls.filter((c) => c.status === 'talking').length,
+    waiting: store.waitingTotal,
     online: eps.filter((e) => e.group !== 'offline').length,
     busy: eps.filter((e) => e.group === 'busy').length,
     total: eps.length,
@@ -106,6 +111,12 @@ const stats = computed(() => {
         <span class="ast-stat-label">Em conversa</span>
       </div>
       <div class="ast-card ast-stat">
+        <span class="ast-stat-value" :class="{ 'tone-text-warning': stats.waiting > 0 }">
+          {{ stats.waiting }}
+        </span>
+        <span class="ast-stat-label">Aguardando em fila</span>
+      </div>
+      <div class="ast-card ast-stat">
         <span class="ast-stat-value tone-text-primary">{{ stats.online }}</span>
         <span class="ast-stat-label">Ramais online de {{ stats.total }}</span>
       </div>
@@ -115,8 +126,32 @@ const stats = computed(() => {
       </div>
     </section>
 
-    <CallList :calls="store.calls" :loading="!store.active?.hasSnapshot" />
-    <EndpointGrid :endpoints="store.endpoints" :loading="!store.active?.hasSnapshot" />
+    <!-- Abas de conteúdo. v-if/v-else monta só a aba ativa (a outra sai da página). -->
+    <nav class="ast-tabs" aria-label="Seções">
+      <button
+        type="button"
+        class="ast-tab"
+        :class="{ active: view === 'overview' }"
+        @click="view = 'overview'"
+      >
+        <LayoutDashboard :size="16" aria-hidden="true" /> Visão geral
+      </button>
+      <button
+        type="button"
+        class="ast-tab"
+        :class="{ active: view === 'queues' }"
+        @click="view = 'queues'"
+      >
+        <ListOrdered :size="16" aria-hidden="true" /> Filas
+        <span v-if="store.queues.length" class="tab-count">{{ store.queues.length }}</span>
+      </button>
+    </nav>
+
+    <template v-if="view === 'overview'">
+      <CallList :calls="store.calls" :loading="!store.active?.hasSnapshot" />
+      <EndpointGrid :endpoints="store.endpoints" :loading="!store.active?.hasSnapshot" />
+    </template>
+    <QueuePanel v-else :queues="store.queues" :loading="!store.active?.hasSnapshot" />
   </div>
 </template>
 
@@ -281,6 +316,9 @@ const stats = computed(() => {
   flex-wrap: wrap;
 }
 .ast-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font: inherit;
   padding: 0.45rem 1rem;
   border: 0;
@@ -291,6 +329,15 @@ const stats = computed(() => {
 }
 .ast-tab:hover {
   background: rgba(var(--ast-primary-rgb), 0.08);
+}
+.tab-count {
+  padding: 0 0.4rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  background: rgba(var(--ast-secondary-rgb), 0.16);
+}
+.ast-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.25);
 }
 .ast-tab.active {
   background: var(--ast-primary);

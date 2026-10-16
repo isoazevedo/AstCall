@@ -4,12 +4,20 @@ import type {
   Channel,
   DeltaMessage,
   DeltaOp,
+  QueueMember,
   ServerMessage,
   SnapshotMessage,
 } from '@astcall/shared';
 import { MonitorConnection, type ConnectionState } from '../src/lib/MonitorConnection';
 import { applyDelta, applySnapshot, createServerState } from '../src/lib/serverState';
-import { addressFromUri, callView, compareEndpointIds, formatDuration } from '../src/lib/view';
+import {
+  addressFromUri,
+  callView,
+  compareEndpointIds,
+  formatDuration,
+  queueView,
+  waitTone,
+} from '../src/lib/view';
 
 // ------------------------------------------------------------------ estado
 
@@ -23,6 +31,9 @@ const snapshot = (epoch: number, seq: number): SnapshotMessage => ({
     channels: [],
     bridges: [],
     calls: [],
+    queues: [],
+    queueMembers: [],
+    queueEntries: [],
   },
 });
 
@@ -85,6 +96,8 @@ function channel(uniqueid: string, num: string, extra: Partial<Channel> = {}): C
     dialStatus: null,
     onHold: false,
     recording: false,
+    queue: null,
+    inQueue: false,
     createdAt: 0,
     answeredAt: null,
     ...extra,
@@ -98,6 +111,7 @@ const call = (extra: Partial<Call>): Call => ({
   status: 'talking',
   links: [],
   recording: false,
+  queue: null,
   startedAt: 0,
   answeredAt: null,
   ...extra,
@@ -267,5 +281,90 @@ describe('MonitorConnection', () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(FakeWS.instances).toHaveLength(1);
     expect(states.at(-1)).toBe('stopped');
+  });
+});
+
+describe('filas (visão)', () => {
+  const member = (iface: string, extra: Partial<QueueMember> = {}): QueueMember => ({
+    id: `suporte|${iface}`,
+    queue: 'suporte',
+    interface: iface,
+    name: iface,
+    endpointId: iface.replace('PJSIP/', ''),
+    status: 'NOT_INUSE',
+    paused: false,
+    pausedReason: '',
+    pausedSince: null,
+    inCall: false,
+    callsTaken: 0,
+    lastCall: null,
+    penalty: 0,
+    membership: 'static',
+    ...extra,
+  });
+
+  it('ordena membros (disponível, atendendo, pausado, indisponível) e rotula a pausa', () => {
+    const q = {
+      name: 'suporte',
+      strategy: 'ringall',
+      max: 0,
+      completed: 2,
+      abandoned: 1,
+      holdtime: 7,
+      talktime: 30,
+      serviceLevel: 0,
+      serviceLevelPerf: 0,
+      weight: 0,
+    };
+    const members = {
+      a: member('PJSIP/9019', { status: 'UNAVAILABLE' }),
+      b: member('PJSIP/9002', { paused: true, pausedReason: 'Almoço' }),
+      c: member('PJSIP/9003', { status: 'INUSE', inCall: true }),
+      d: member('PJSIP/9001'),
+    };
+    const entries = {
+      x: {
+        id: 'suporte|x',
+        queue: 'suporte',
+        uniqueid: 'x',
+        channel: '',
+        callerId: { num: '1', name: '' },
+        position: 2,
+        joinedAt: 0,
+      },
+      y: {
+        id: 'suporte|y',
+        queue: 'suporte',
+        uniqueid: 'y',
+        channel: '',
+        callerId: { num: '2', name: '' },
+        position: 1,
+        joinedAt: 0,
+      },
+      z: {
+        id: 'outra|z',
+        queue: 'outra',
+        uniqueid: 'z',
+        channel: '',
+        callerId: { num: '3', name: '' },
+        position: 1,
+        joinedAt: 0,
+      },
+    };
+    const v = queueView(q, members, entries);
+    expect(v.members.map((m) => m.label)).toEqual(['9001', '9003', '9002', '9019']);
+    expect(v.members[2]).toMatchObject({
+      stateLabel: 'Pausado',
+      tone: 'warning',
+      pausedReason: 'Almoço',
+    });
+    expect([v.available, v.busy, v.paused, v.offline]).toEqual([1, 1, 1, 1]);
+    expect(v.waiting.map((e) => e.uniqueid)).toEqual(['y', 'x']);
+  });
+
+  it('cor da espera segue os limites de 60 s e 180 s', () => {
+    expect(waitTone(59)).toBe('secondary');
+    expect(waitTone(60)).toBe('warning');
+    expect(waitTone(180)).toBe('danger');
   });
 });

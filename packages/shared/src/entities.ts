@@ -67,6 +67,10 @@ export interface Channel {
   dialStatus: string | null;
   onHold: boolean;
   recording: boolean;
+  /** Fila por onde o canal entrou (continua preenchida depois do atendimento). */
+  queue: string | null;
+  /** Aguardando na fila agora (entre QueueCallerJoin e QueueCallerLeave). */
+  inQueue: boolean;
   /** Epoch em ms. */
   createdAt: number;
   answeredAt: number | null;
@@ -82,7 +86,7 @@ export interface Bridge {
 }
 
 /** Situação resumida de uma chamada. */
-export type CallStatus = 'dialing' | 'ringing' | 'talking' | 'held' | 'other';
+export type CallStatus = 'dialing' | 'ringing' | 'queued' | 'talking' | 'held' | 'other';
 
 /**
  * Chamada: todos os canais com o mesmo Linkedid (calculada a partir dos canais).
@@ -99,6 +103,65 @@ export interface Call {
    */
   links: string[][];
   recording: boolean;
+  /** Fila por onde a chamada passou (null se não passou por fila). */
+  queue: string | null;
   startedAt: number;
   answeredAt: number | null;
+}
+
+// ------------------------------------------------------------------ filas
+
+/** Fila (app_queue). Chave: nome da fila. Estatísticas acumuladas desde o último reload/reset. */
+export interface Queue {
+  name: string;
+  strategy: string;
+  /** Limite de chamadores (0 = sem limite). */
+  max: number;
+  /** Atendidas (completadas). */
+  completed: number;
+  abandoned: number;
+  /** Espera média em segundos (média do Asterisk). */
+  holdtime: number;
+  /** Conversa média em segundos (média do Asterisk). */
+  talktime: number;
+  /** Nível de serviço configurado (segundos) e % de atendidas dentro dele. */
+  serviceLevel: number;
+  serviceLevelPerf: number;
+  weight: number;
+}
+
+/** Membro (agente) de uma fila. Chave: "<fila>|<interface>". */
+export interface QueueMember {
+  id: string;
+  queue: string;
+  /** Interface que recebe as chamadas (ex.: "PJSIP/9001", "Local/9001@ctx"). */
+  interface: string;
+  name: string;
+  /** Endpoint PJSIP associado, quando dá para identificar (ex.: "9001"). */
+  endpointId: string | null;
+  /** Estado de dispositivo do membro. */
+  status: DeviceState;
+  paused: boolean;
+  pausedReason: string;
+  /** Início da pausa atual (ms), quando conhecido. */
+  pausedSince: number | null;
+  inCall: boolean;
+  callsTaken: number;
+  /** Fim da última chamada atendida (ms). */
+  lastCall: number | null;
+  penalty: number;
+  /** static (configurado), dynamic (QueueAdd) ou realtime. */
+  membership: string;
+}
+
+/** Chamador aguardando numa fila. Chave: "<fila>|<uniqueid>". */
+export interface QueueEntry {
+  id: string;
+  queue: string;
+  uniqueid: string;
+  channel: string;
+  callerId: PartyId;
+  position: number;
+  /** Entrada na fila (ms). */
+  joinedAt: number;
 }

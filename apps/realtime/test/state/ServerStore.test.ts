@@ -141,8 +141,72 @@ describe('ServerStore + handlers', () => {
     const store = new ServerStore();
     applyEvent(store, newchannel('1.1', 'PJSIP/9001-00000001'), T);
     store.clear();
-    expect(store.snapshot()).toEqual({ endpoints: [], channels: [], bridges: [], calls: [] });
+    expect(store.snapshot()).toEqual({
+      endpoints: [],
+      channels: [],
+      bridges: [],
+      calls: [],
+      queues: [],
+      queueMembers: [],
+      queueEntries: [],
+    });
     expect(store.flush()).toEqual([]);
+  });
+});
+
+describe('filas', () => {
+  const join = (uniqueid: string, position: number) => ({
+    event: 'QueueCallerJoin',
+    queue: 'suporte',
+    uniqueid,
+    linkedid: uniqueid,
+    channel: `PJSIP/900${position}-0000000${position}`,
+    calleridnum: `900${position}`,
+    position: String(position),
+  });
+
+  it('quem estava atrás sobe de posição quando alguém sai da fila', () => {
+    const store = new ServerStore();
+    applyEvent(store, join('a', 1), T);
+    applyEvent(store, join('b', 2), T);
+    applyEvent(store, join('c', 3), T);
+    applyEvent(
+      store,
+      { event: 'QueueCallerLeave', queue: 'suporte', uniqueid: 'a', position: '1' },
+      T,
+    );
+    const pos = Object.fromEntries(
+      [...store.queueEntries.values()].map((e) => [e.uniqueid, e.position]),
+    );
+    expect(pos).toEqual({ b: 1, c: 2 });
+    expect(store.calls.get('b')?.status).toBe('queued');
+  });
+
+  it('desligar sem QueueCallerLeave também tira o chamador da fila', () => {
+    const store = new ServerStore();
+    applyEvent(store, join('a', 1), T);
+    applyEvent(store, { event: 'Hangup', uniqueid: 'a', channel: 'PJSIP/9001-00000001' }, T);
+    expect(store.queueEntries.size).toBe(0);
+  });
+
+  it('QueueEntry calcula a entrada pela espera informada', () => {
+    const store = new ServerStore();
+    applyEvent(
+      store,
+      {
+        event: 'QueueEntry',
+        queue: 'suporte',
+        uniqueid: 'x',
+        position: '1',
+        wait: '42',
+        calleridnum: '11999',
+      },
+      T,
+    );
+    expect(store.queueEntries.get('suporte|x')).toMatchObject({
+      joinedAt: T - 42_000,
+      position: 1,
+    });
   });
 });
 

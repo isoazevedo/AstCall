@@ -14,7 +14,8 @@ export interface SyncList {
 
 /**
  * Listas consultadas a cada sincronização, na ordem.
- * Filas, ConfBridge e estacionamento entram aqui junto com seus domínios (itens 9 a 11).
+ * QueueStatus vem depois dos canais para marcar quem está "na fila". Opcional: o módulo de
+ * filas pode não estar carregado. ConfBridge e estacionamento entram nos itens 10 e 11.
  */
 export const SYNC_LISTS: readonly SyncList[] = [
   { action: 'PJSIPShowEndpoints', optional: false },
@@ -22,6 +23,7 @@ export const SYNC_LISTS: readonly SyncList[] = [
   { action: 'DeviceStateList', optional: false },
   { action: 'BridgeList', optional: false },
   { action: 'CoreShowChannels', optional: false },
+  { action: 'QueueStatus', optional: true },
 ];
 
 /** Módulos cujo reload pode mudar o estado que mantemos ("All" = core reload, usado pelo AzCall). */
@@ -38,6 +40,11 @@ function isEmptyListError(err: unknown): boolean {
 export interface SynchronizerOptions {
   /** Espera após um Reload antes de ressincronizar (vários reloads seguidos viram um só). */
   reloadDebounceMs?: number;
+  /**
+   * Intervalo da reconciliação das filas (QueueStatus). O Asterisk não envia eventos quando
+   * médias/totais mudam; a reconciliação também corrige divergências. 0 = desligada.
+   */
+  queueRefreshMs?: number;
 }
 
 type SyncEvents = {
@@ -67,8 +74,11 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
   private current: Promise<void> | undefined;
   private again = false;
   private reloadTimer: NodeJS.Timeout | undefined;
+  private queueTimer: NodeJS.Timeout | undefined;
+  private refreshingQueues = false;
   private readonly log: Logger;
   private readonly reloadDebounceMs: number;
+  private readonly queueRefreshMs: number;
 
   constructor(
     private readonly conn: AmiConnection,
@@ -79,12 +89,18 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
     super();
     this.log = log.child({ server: conn.serverId });
     this.reloadDebounceMs = options.reloadDebounceMs ?? 3_000;
+    this.queueRefreshMs = options.queueRefreshMs ?? 60_000;
     // Cada nova conexão AMI dispara uma sincronização completa
     conn.setOnConnected(() => this.run());
     conn.on('event', (ev) => this.onEvent(ev));
     conn.on('status', (status) => {
-      if (status === 'disconnected') this.cancelScheduledResync();
+      if (status === 'disconnected') {
+        this.cancelScheduledResync();
+        clearInterval(this.queueTimer);
+        this.queueTimer = undefined;
+      }
     });
+    this.on('synced', () => this.startQueueRefresh());
   }
 
   get epoch(): number {
@@ -165,6 +181,63 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
       'Estado sincronizado',
     );
     this.emit('synced', { epoch: this._epoch, durationMs });
+  }
+
+  /**
+   * Reconciliação das filas: aplica o QueueStatus atual e remove membros/chamadores/filas que
+   * não vieram na resposta — exceto os alterados por eventos durante a própria consulta
+   * (um chamador que entrou no meio dela não pode ser removido por engano).
+   */
+  async refreshQueues(): Promise<void> {
+    if (this._syncing || this.refreshingQueues) return;
+    this.refreshingQueues = true;
+    const seen = {
+      queue: new Set<string>(),
+      queueMember: new Set<string>(),
+      queueEntry: new Set<string>(),
+    };
+    const touched = new Set<string>();
+    const onDeltas = (ops: { entity: string; id: string }[]) => {
+      for (const op of ops) touched.add(`${op.entity}:${op.id}`);
+    };
+    this.store.on('deltas', onDeltas);
+    try {
+      await this.conn.sendListAction('QueueStatus', {}, undefined, (item) => {
+        applyEvent(this.store, item);
+        if (item.event === 'QueueParams' && item.queue) seen.queue.add(item.queue);
+        if (item.event === 'QueueMember' && item.queue) {
+          seen.queueMember.add(`${item.queue}|${item.location || item.interface}`);
+        }
+        if (item.event === 'QueueEntry' && item.queue) {
+          seen.queueEntry.add(`${item.queue}|${item.uniqueid}`);
+        }
+      });
+      const stale = (entity: keyof typeof seen, id: string) =>
+        !seen[entity].has(id) && !touched.has(`${entity}:${id}`);
+      for (const e of [...this.store.queueEntries.values()]) {
+        if (stale('queueEntry', e.id)) this.store.removeEntry(e.queue, e.uniqueid);
+      }
+      for (const m of [...this.store.queueMembers.values()]) {
+        if (stale('queueMember', m.id)) this.store.removeMember(m.id);
+      }
+      for (const name of [...this.store.queues.keys()]) {
+        if (stale('queue', name)) this.store.removeQueue(name);
+      }
+      this.store.flush();
+    } catch (err) {
+      if (!isEmptyListError(err)) {
+        this.log.debug({ err: (err as Error).message }, 'Reconciliação das filas falhou');
+      }
+    } finally {
+      this.store.off('deltas', onDeltas);
+      this.refreshingQueues = false;
+    }
+  }
+
+  private startQueueRefresh(): void {
+    clearInterval(this.queueTimer);
+    if (this.queueRefreshMs <= 0) return;
+    this.queueTimer = setInterval(() => void this.refreshQueues(), this.queueRefreshMs);
   }
 
   private onEvent(ev: AmiMessage): void {

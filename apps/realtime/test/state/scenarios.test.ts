@@ -13,6 +13,9 @@ const FIXTURES = [
   '04-transferencia-assistida.jsonl',
   '05-fila.jsonl',
   '07-espera-e-retomada.jsonl',
+  '08-fila-abandono.jsonl',
+  '09-fila-dois-membros.jsonl',
+  '10-fila-pausa.jsonl',
 ];
 
 describe('invariantes de todas as gravações de chamada', () => {
@@ -196,5 +199,76 @@ describe('cenário 6: registro de ramal', () => {
     expect(ep.deviceState).toBe('NOT_INUSE');
     expect(ep.contacts).toHaveLength(1);
     expect(ep.contacts[0]).toMatchObject({ status: 'NonQualified', rttMs: null });
+  });
+});
+
+describe('filas (gravações do laboratório)', () => {
+  it('cenário 5: fila atendida registra quem atendeu e a fila na chamada', () => {
+    const events = loadFixture('05-fila.jsonl');
+    const waiting = replay(events, { until: at('QueueCallerJoin') }).snapshot;
+    expect(waiting.queueEntries).toHaveLength(1);
+    expect(waiting.queueEntries[0]).toMatchObject({ queue: 'marcacao-default', position: 1 });
+    expect(waiting.calls[0]?.status).toBe('queued');
+
+    const talking = replay(events, { until: at('BridgeEnter', 'PJSIP/9002') }).snapshot;
+    expect(talking.queueEntries).toHaveLength(0);
+    expect(talking.calls[0]).toMatchObject({ status: 'talking', queue: 'marcacao-default' });
+
+    const end = replay(events).snapshot;
+    expect(end.queues.find((q) => q.name === 'marcacao-default')?.completed).toBe(1);
+  });
+
+  it('cenário 8: abandono — membro não atende, chamador desiste', () => {
+    const events = loadFixture('08-fila-abandono.jsonl');
+    const ringing = replay(events, { until: at('AgentCalled') }).snapshot;
+    // o membro foi chamado; o toque aparece no Newstate/QueueMemberStatus seguintes
+    expect(ringing.queueEntries).toHaveLength(1);
+
+    const member = replay(events, { until: at('QueueMemberStatus') }).store.queueMembers;
+    expect(member.get('marcacao-default|PJSIP/9001')).toMatchObject({
+      status: 'RINGING',
+      endpointId: '9001',
+    });
+
+    // depois que o membro para de tocar (AgentRingNoAnswer), o chamador volta a "na fila"
+    // (o 1º Hangup de PJSIP/9001 é de um canal paralelo originado pelo AzCall; o 2º é o do toque)
+    const back = replay(events, { until: nth(2, at('Hangup', 'PJSIP/9001')) }).snapshot;
+    expect(back.calls[0]?.status).toBe('queued');
+
+    const end = replay(events).snapshot;
+    expect(end.queueEntries).toHaveLength(0);
+    expect(end.queues.find((q) => q.name === 'marcacao-default')).toMatchObject({
+      abandoned: 1,
+      completed: 0,
+    });
+  });
+
+  it('cenário 9: "tocar todos" com dois membros; atende o 9001', () => {
+    const events = loadFixture('09-fila-dois-membros.jsonl');
+    const ringing = replay(events, { until: nth(2, at('AgentCalled')) }).snapshot;
+    expect(ringing.calls).toHaveLength(1);
+    const talking = replay(events, { until: at('BridgeEnter', 'PJSIP/9005') }).snapshot;
+    const call = talking.calls[0]!;
+    expect(call).toMatchObject({ status: 'talking', queue: 'suporte-default' });
+    expect(linksByName(talking, call.id)).toEqual([['PJSIP/9001', 'PJSIP/9005']]);
+    const end = replay(events).store;
+    expect(end.queues.get('suporte-default')?.completed).toBe(1);
+    expect(end.queueMembers.get('suporte-default|PJSIP/9002')?.status).toBe('NOT_INUSE');
+  });
+
+  it('cenário 10: pausa só na fila pausada, com início da pausa; despausa limpa', () => {
+    const events = loadFixture('10-fila-pausa.jsonl');
+    const paused = replay(events, { until: at('QueueMemberPause') }).store;
+    const m = paused.queueMembers.get('suporte-default|PJSIP/9001')!;
+    expect(m.paused).toBe(true);
+    expect(m.pausedSince).toBe(1792185716 * 1000); // LastPause informado pelo Asterisk
+    expect(paused.queueMembers.get('marcacao-default|PJSIP/9001')?.paused ?? false).toBe(false);
+
+    const end = replay(events).store;
+    expect(end.queueMembers.get('suporte-default|PJSIP/9001')).toMatchObject({
+      paused: false,
+      pausedSince: null,
+    });
+    expect(end.queues.get('suporte-default')?.abandoned).toBe(1);
   });
 });
