@@ -15,15 +15,16 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 
 ## Já implementado
 
-| #   | Funcionalidade                 | Descrição resumida                                                                                                                                                                                                 | Status         |
-| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| 1   | **Diretrizes do projeto**      | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                                                                       | ✅ Produção    |
-| 2   | **Análise do MonAst**          | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                                                                      | ✅ Produção    |
-| 3   | **Decisões de stack**          | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                                                                            | ✅ Produção    |
-| 4   | **Roadmap**                    | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                                                                                 | ✅ Produção    |
-| 5   | **Monorepo (item 1)**          | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                                                                          | ✅ Produção    |
-| 6   | **Cliente AMI (item 2)**       | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff, Ping e gravador de tráfego (`AMI_RECORD_DIR`). Validado no laboratório (Asterisk 20.9.2). | ✅ Produção    |
-| 7   | **Estado em memória (item 3)** | `ServerStore` com endpoints, canais, bridges e chamadas por `Linkedid`, links atravessando canais Local, deltas sem repetição. Testado com 6 cenários gravados no laboratório.                                     | 🔄 Homologação |
+| #   | Funcionalidade                 | Descrição resumida                                                                                                                                                                                                                                                     | Status         |
+| --- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 1   | **Diretrizes do projeto**      | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                                                                                                                           | ✅ Produção    |
+| 2   | **Análise do MonAst**          | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                                                                                                                          | ✅ Produção    |
+| 3   | **Decisões de stack**          | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                                                                                                                                | ✅ Produção    |
+| 4   | **Roadmap**                    | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                                                                                                                                     | ✅ Produção    |
+| 5   | **Monorepo (item 1)**          | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                                                                                                                              | ✅ Produção    |
+| 6   | **Cliente AMI (item 2)**       | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff, Ping e gravador de tráfego (`AMI_RECORD_DIR`). Validado no laboratório (Asterisk 20.9.2).                                                     | ✅ Produção    |
+| 7   | **Estado em memória (item 3)** | `ServerStore` com endpoints, canais, bridges e chamadas por `Linkedid`, links atravessando canais Local, deltas sem repetição. Testado com 6 cenários gravados no laboratório.                                                                                         | 🔄 Homologação |
+| 8   | **Sincronização (item 4)**     | `Synchronizer`: estado zerado e reconstruído pelas listas do AMI a cada conexão, itens aplicados na ordem do stream (sem buffer), listas vazias com `Error` toleradas, ressincronização com debounce após `Reload`. Validado no laboratório (24 endpoints em ~230 ms). | 🔄 Homologação |
 
 ---
 
@@ -117,7 +118,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 4. Sincronização inicial e ressincronização completa
+#### 4. Sincronização inicial e ressincronização completa — 🔄
 
 **O que é:** Ao conectar ou reconectar no AMI, reconstruir o estado completo do PBX sem perder eventos que chegam durante o processo.
 
@@ -125,16 +126,16 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 **Como implementar:**
 
-1. Entrar em `syncing` e guardar eventos recebidos em buffer.
-2. Limpar o store e executar: `PJSIPShowEndpoints`, `PJSIPShowContacts`, `DeviceStateList`, `CoreShowChannels`, `BridgeList`, `QueueStatus`, `QueueSummary`, `ConfbridgeListRooms` + `ConfbridgeList`, `ParkedCalls`.
-3. Aplicar o buffer (handlers idempotentes), incrementar o `epoch` e publicar snapshot.
-4. Disparar ressincronização também em `FullyBooted` e em `Reload` **dos módulos relevantes** (PJSIP, filas, ConfBridge). O AzCall recarrega a cada alteração de configuração (visto no laboratório); ressincronizar em todo `Reload` seria custoso.
+1. Entrar em `syncing`. ~~Guardar eventos em buffer~~ → os itens das listas são aplicados na ordem em que chegam, intercalados com os eventos ao vivo (mesma ordem do stream TCP), o que evita sobrescrever dados novos com antigos.
+2. Limpar o store e executar: `PJSIPShowEndpoints`, `PJSIPShowContacts`, `DeviceStateList`, `BridgeList`, `CoreShowChannels`. `QueueStatus`/`QueueSummary`, `ConfbridgeListRooms`/`ConfbridgeList` e `ParkedCalls` entram em `SYNC_LISTS` junto com os itens 9 a 11.
+3. Incrementar o `epoch` e emitir `synced` (o hub do item 5 envia o snapshot aos clientes).
+4. Ressincronizar após `Reload` de módulos relevantes, **com debounce** (3 s). O AzCall faz reload com `Module: All` a cada alteração de configuração, então o filtro por módulo pouco ajuda nesse caso; o debounce agrupa reloads seguidos. `FullyBooted` não dispara ressincronização: após um restart do Asterisk a conexão cai e a reconexão já sincroniza.
 5. Tratar como lista vazia as actions que respondem `Response: Error` sem itens (ex.: `ConfbridgeListRooms` → "No active conferences.").
 
 **Arquivos envolvidos:**
 
-- `apps/realtime/src/sync/Resync.ts` — orquestração da sincronização
-- `apps/realtime/src/ami/AmiConnection.ts` — gatilhos de ressincronização
+- `apps/realtime/src/sync/Synchronizer.ts` — orquestração da sincronização e do reload
+- `apps/realtime/src/ami/AmiClient.ts` — itens de lista entregues na ordem do stream (`onItem`)
 
 **Esforço estimado:** M
 **Impacto esperado:** Alto
@@ -534,3 +535,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-16 | Claude Code | Item 1 implementado e em homologação                                                                                                                                                                |
 | 2026-10-16 | Claude Code | Item 1 concluído; item 2 (cliente AMI) implementado e em homologação                                                                                                                                |
 | 2026-10-16 | Claude Code | Item 2 validado no laboratório; item 3 implementado com fixtures reais (chamada, não atendida, transferências cega e assistida, fila, registro); refinado o item 4 (Reload seletivo)                |
+| 2026-10-16 | Claude Code | Item 4 implementado (sincronização em ordem de stream, debounce de Reload) e validado no laboratório                                                                                                |

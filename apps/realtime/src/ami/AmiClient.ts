@@ -37,6 +37,7 @@ interface Pending {
   timer: NodeJS.Timeout;
   response?: AmiMessage;
   events: AmiMessage[];
+  onItem?: (item: AmiMessage) => void;
 }
 
 /**
@@ -138,13 +139,17 @@ export class AmiClient extends EventEmitter<ClientEvents> {
   /**
    * Envia uma action de lista (ex.: CoreShowChannels) e aguarda todos os itens até o
    * evento final com "EventList: Complete".
+   *
+   * `onItem` é chamado para cada item no momento em que chega, na mesma ordem do stream
+   * em relação aos eventos assíncronos (útil para aplicar o estado sem perder ordenação).
    */
   sendListAction(
     action: string,
     fields: AmiActionFields = {},
     timeoutMs = this.listTimeoutMs,
+    onItem?: (item: AmiMessage) => void,
   ): Promise<AmiListResult> {
-    return this.send(action, fields, true, timeoutMs) as Promise<AmiListResult>;
+    return this.send(action, fields, true, timeoutMs, onItem) as Promise<AmiListResult>;
   }
 
   /** Encerra a conexão (envia Logoff quando possível). */
@@ -171,6 +176,7 @@ export class AmiClient extends EventEmitter<ClientEvents> {
     fields: AmiActionFields,
     isList: boolean,
     timeoutMs: number,
+    onItem?: (item: AmiMessage) => void,
   ): Promise<AmiMessage | AmiListResult> {
     if (!this.connected) return Promise.reject(new AmiDisconnectedError(action));
 
@@ -187,7 +193,7 @@ export class AmiClient extends EventEmitter<ClientEvents> {
         this.pending.delete(actionId);
         reject(new AmiTimeoutError(action, timeoutMs));
       }, timeoutMs);
-      this.pending.set(actionId, { action, isList, resolve, reject, timer, events: [] });
+      this.pending.set(actionId, { action, isList, resolve, reject, timer, events: [], onItem });
       this.socket!.write(packet);
     });
   }
@@ -210,6 +216,7 @@ export class AmiClient extends EventEmitter<ClientEvents> {
           pending.resolve({ response: pending.response, events: pending.events, complete: msg });
         } else {
           pending.events.push(msg);
+          pending.onItem?.(msg);
         }
         return;
       }

@@ -104,7 +104,7 @@ reference/       # MonAst original — apenas referência, fora do git
 - Versões suportadas: **Asterisk 20 LTS e 22 LTS**. Usar apenas actions e eventos presentes nas duas; quando houver diferença, tratar explicitamente e documentar. O laboratório de testes roda Asterisk 20.
 
 - **AMI** é a base do monitoramento (visão completa do PBX). ARI pode ser usado futuramente para controle avançado de chamadas, mas não substitui o AMI para monitoramento.
-- **Sincronização inicial** ao conectar no AMI (com buffer dos eventos recebidos durante o processo):
+- **Sincronização inicial** ao conectar no AMI (itens das listas aplicados na ordem do stream, intercalados com os eventos ao vivo; ver `apps/realtime/src/sync/Synchronizer.ts`):
   - `PJSIPShowEndpoints` / `PJSIPShowContacts` / `DeviceStateList`
   - `CoreShowChannels` / `BridgeList`
   - `QueueStatus` / `QueueSummary`

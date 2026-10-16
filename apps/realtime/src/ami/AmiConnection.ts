@@ -96,6 +96,17 @@ export class AmiConnection extends EventEmitter<ConnectionEvents> {
     await this.loopDone;
   }
 
+  /** Define (ou troca) o hook chamado a cada conexão; vale a partir da próxima conexão. */
+  setOnConnected(fn: AmiConnectionOptions['onConnected']): void {
+    this.opts.onConnected = fn;
+  }
+
+  /** Derruba a conexão atual para forçar reconexão + sincronização completa. */
+  reconnect(reason: string): void {
+    this.log.warn({ reason }, 'Forçando reconexão AMI');
+    this.client?.destroy(new Error(reason));
+  }
+
   /** Envia uma action simples pela conexão atual. */
   sendAction(action: string, fields?: AmiActionFields, timeoutMs?: number): Promise<AmiMessage> {
     const client = this.client;
@@ -103,15 +114,16 @@ export class AmiConnection extends EventEmitter<ConnectionEvents> {
     return client.sendAction(action, fields, timeoutMs);
   }
 
-  /** Envia uma action de lista pela conexão atual. */
+  /** Envia uma action de lista pela conexão atual (`onItem`: ver AmiClient.sendListAction). */
   sendListAction(
     action: string,
     fields?: AmiActionFields,
     timeoutMs?: number,
+    onItem?: (item: AmiMessage) => void,
   ): Promise<AmiListResult> {
     const client = this.client;
     if (!client?.connected) return Promise.reject(new AmiDisconnectedError(action));
-    return client.sendListAction(action, fields, timeoutMs);
+    return client.sendListAction(action, fields, timeoutMs, onItem);
   }
 
   // ---------------------------------------------------------------------------

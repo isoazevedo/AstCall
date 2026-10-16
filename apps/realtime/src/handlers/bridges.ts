@@ -34,4 +34,14 @@ export const bridgeHandlers: Record<string, Handler> = {
   bridgedestroy: (store, msg) => {
     if (msg.bridgeuniqueid) store.removeBridge(msg.bridgeuniqueid);
   },
+
+  // ---- Item de lista da sincronização (BridgeList). Os canais entram pelo CoreShowChannel.
+  bridgelistitem: (store, msg, ts) => {
+    if (!msg.bridgeuniqueid) return;
+    store.ensureBridge(
+      msg.bridgeuniqueid,
+      { type: msg.bridgetype, technology: msg.bridgetechnology },
+      ts,
+    );
+  },
 };
