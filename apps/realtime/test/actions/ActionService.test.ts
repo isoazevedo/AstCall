@@ -337,3 +337,46 @@ describe('escuta (spy)', () => {
     expect(conn.sent).toHaveLength(0);
   });
 });
+
+describe('escopo multi-empresa nas ações', () => {
+  const scoped = (endpoints: string[], queues: string[]): TokenClaims => ({
+    ...claims(ALL),
+    scope: { pbx1: { endpoints, queues } },
+  });
+
+  it('não age em chamada de outra empresa (responde "não encontrado")', async () => {
+    const outra = scoped(['9005'], []);
+    expect(
+      await code(service.execute(outra, 'pbx1', 'hangup', { uniqueid: uid('PJSIP/9001') })),
+    ).toBe('not_found');
+    expect(
+      await code(service.execute(outra, 'pbx1', 'originate', { from: '9001', to: '9002' })),
+    ).toBe('not_found');
+    // a empresa dona do 9001 pode
+    expect(
+      await code(
+        service.execute(scoped(['9001'], []), 'pbx1', 'hangup', { uniqueid: uid('PJSIP/9002') }),
+      ),
+    ).toBe('ok');
+  });
+
+  it('"pausar em todas" com escopo vira uma pausa por fila da empresa', async () => {
+    await service.execute(scoped(['9001'], ['suporte-default']), 'pbx1', 'queuePause', {
+      queue: null,
+      interface: 'PJSIP/9001',
+      paused: true,
+    });
+    expect(conn.sent.map((c) => c.fields.Queue)).toEqual(['suporte-default']); // marcacao não
+  });
+
+  it('pausa em fila de outra empresa é recusada', async () => {
+    const r = await code(
+      service.execute(scoped(['9001'], ['suporte-default']), 'pbx1', 'queuePause', {
+        queue: 'marcacao-default',
+        interface: 'PJSIP/9001',
+        paused: true,
+      }),
+    );
+    expect(r).toBe('not_found');
+  });
+});

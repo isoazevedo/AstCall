@@ -71,6 +71,22 @@ export interface TokenClaims {
   iat: number;
   /** Permissões por servidor. */
   perms: ServerPermissions;
+  /**
+   * Escopo por servidor (multi-empresa). Ausente para um servidor = vê tudo nele.
+   * Presente = só os endpoints (ramais e troncos) e filas listados — e as chamadas que os
+   * envolvem. Ex.: { "pbx1": { endpoints: ["9001", "Avoip"], queues: ["suporte-default"] } }.
+   */
+  scope?: Record<ServerId, ServerScope>;
+  /** Ramal do usuário (sugestão nos diálogos de "Ligar" e escuta). */
+  extension?: string;
+}
+
+/** O que um usuário com escopo pode ver/agir num servidor. */
+export interface ServerScope {
+  /** Nomes de endpoints PJSIP (ramais e troncos). */
+  endpoints: string[];
+  /** Nomes de filas como estão no Asterisk (ex.: "suporte-default"). */
+  queues: string[];
 }
 
 /** Resposta do `POST /auth/login` do modo standalone. */

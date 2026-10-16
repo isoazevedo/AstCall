@@ -31,6 +31,16 @@ const claimsSchema = z.object({
   exp: z.number(),
   iat: z.number(),
   perms: permsSchema,
+  scope: z
+    .record(
+      z.string().min(1),
+      z.object({
+        endpoints: z.array(z.string().max(64)).max(5000),
+        queues: z.array(z.string().max(128)).max(1000),
+      }),
+    )
+    .optional(),
+  extension: z.string().max(64).optional(),
 });
 
 function readKey(file: string, what: string): string {

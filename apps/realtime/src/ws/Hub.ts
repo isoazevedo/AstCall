@@ -10,6 +10,7 @@ import {
   WS_PATH,
   type ServerId,
   type ServerMessage,
+  type ServerScope,
   type TokenClaims,
 } from '@astcall/shared';
 import { ActionError, type ActionService } from '../actions/index.js';
@@ -146,6 +147,11 @@ class Session implements FeedSubscriber {
     ws.on('error', (err) => this.log.debug({ err: err.message }, 'Erro no WebSocket'));
   }
 
+  /** Escopo multi-empresa do token neste servidor (undefined = vê tudo). */
+  scopeFor(serverId: ServerId): ServerScope | undefined {
+    return this.claims?.scope?.[serverId];
+  }
+
   send(msg: ServerMessage): void {
     if (this.ws.readyState !== WebSocket.OPEN) return;
     if (this.ws.bufferedAmount > this.hub.opts.maxBufferedBytes) {
@@ -244,6 +250,7 @@ class Session implements FeedSubscriber {
     }
 
     const first = !this.claims;
+    const scopeChanged = JSON.stringify(this.claims?.scope) !== JSON.stringify(claims.scope);
     this.claims = claims;
     this.log = this.log.child({ user: claims.sub });
     clearTimeout(this.authTimer);
@@ -255,6 +262,10 @@ class Session implements FeedSubscriber {
       if (!this.hub.feedFor(claims, id)) {
         feed.unsubscribe(this);
         this.subscribed.delete(id);
+      } else if (!first && scopeChanged) {
+        // Escopo mudou (ex.: ramal novo na empresa): reassina para receber o recorte novo
+        feed.unsubscribe(this);
+        feed.subscribe(this);
       }
     }
 

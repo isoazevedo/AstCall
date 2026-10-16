@@ -11,6 +11,7 @@ import { AmiActionError, AmiDisconnectedError, type AmiActionFields } from '../a
 import type { AmiConnection } from '../ami/AmiConnection.js';
 import type { Logger } from '../logger.js';
 import type { ServerStore } from '../state/ServerStore.js';
+import { ScopeFilter } from '../state/visibility.js';
 
 /** Erro de ação com código estável (a interface traduz) e mensagem segura para o usuário. */
 export class ActionError extends Error {
@@ -94,10 +95,10 @@ export class ActionService {
   ): Promise<void> {
     const who = { user: claims.sub, iss: claims.iss, server: serverId, action: name };
     try {
-      const call = await this.prepare(claims, serverId, name, params);
+      const calls = await this.prepare(claims, serverId, name, params);
       const target = this.targets.get(serverId)!;
       try {
-        await target.conn.sendAction(call.action, call.fields);
+        for (const call of calls) await target.conn.sendAction(call.action, call.fields);
       } catch (err) {
         if (err instanceof AmiDisconnectedError) {
           throw new ActionError('disconnected', 'servidor Asterisk desconectado');
@@ -107,7 +108,10 @@ export class ActionService {
         }
         throw err;
       }
-      this.audit.info({ ...who, params, ami: call.action, ok: true }, 'Ação executada');
+      this.audit.info(
+        { ...who, params, ami: calls.map((c) => c.action).join(','), ok: true },
+        'Ação executada',
+      );
     } catch (err) {
       const code = err instanceof ActionError ? err.code : 'ami_error';
       this.audit.warn(
@@ -121,13 +125,16 @@ export class ActionService {
 
   // ---------------------------------------------------------------------------
 
-  /** Valida tudo e devolve a action AMI (sem enviar). Separado para facilitar os testes. */
+  /**
+   * Valida tudo e devolve as actions AMI (sem enviar). Separado para facilitar os testes.
+   * Normalmente é uma só; "pausar em todas as filas" com escopo vira uma por fila da empresa.
+   */
   async prepare(
     claims: TokenClaims,
     serverId: ServerId,
     name: string,
     params: unknown,
-  ): Promise<AmiCall> {
+  ): Promise<AmiCall[]> {
     if (!(name in SCHEMAS)) throw new ActionError('invalid', `ação desconhecida: ${name}`);
     const action = name as ActionName;
     const target = this.targets.get(serverId);
@@ -142,37 +149,64 @@ export class ActionService {
       throw new ActionError('invalid', parsed.error.issues[0]?.message ?? 'parâmetros inválidos');
     }
 
+    // Multi-empresa: com escopo, só age no que a empresa enxerga. Fora do escopo a resposta é
+    // "não encontrado" (não revela que existe algo de outra empresa).
+    const scope = claims.scope?.[serverId];
+    const filter = scope ? new ScopeFilter(scope, target.store) : undefined;
+    const data = parsed.data as Record<string, unknown>;
+    if (filter) {
+      const notFound = () => new ActionError('not_found', 'não encontrado');
+      if (typeof data.uniqueid === 'string' && !filter.channelIdVisible(data.uniqueid))
+        throw notFound();
+      if (typeof data.from === 'string' && !filter.endpointVisible(data.from)) throw notFound();
+      if (typeof data.listener === 'string' && !filter.endpointVisible(data.listener))
+        throw notFound();
+      if (typeof data.queue === 'string' && !filter.queueVisible(data.queue)) throw notFound();
+    }
+
     switch (action) {
       case 'queuePause':
-        return this.buildQueuePause(target, parsed.data as z.infer<typeof SCHEMAS.queuePause>);
+        return this.buildQueuePause(target, data as z.infer<typeof SCHEMAS.queuePause>, filter);
       case 'hangup':
-        return this.buildHangup(target, parsed.data as z.infer<typeof SCHEMAS.hangup>);
+        return [this.buildHangup(target, data as z.infer<typeof SCHEMAS.hangup>)];
       case 'transfer':
-        return this.buildTransfer(target, parsed.data as z.infer<typeof SCHEMAS.transfer>);
+        return [await this.buildTransfer(target, data as z.infer<typeof SCHEMAS.transfer>)];
       case 'originate':
-        return this.buildOriginate(target, parsed.data as z.infer<typeof SCHEMAS.originate>);
+        return [await this.buildOriginate(target, data as z.infer<typeof SCHEMAS.originate>)];
       case 'spy':
-        return this.buildSpy(target, parsed.data as z.infer<typeof SCHEMAS.spy>);
+        return [this.buildSpy(target, data as z.infer<typeof SCHEMAS.spy>)];
     }
   }
 
-  private buildQueuePause({ store }: ActionTarget, p: z.infer<typeof SCHEMAS.queuePause>): AmiCall {
+  private buildQueuePause(
+    { store }: ActionTarget,
+    p: z.infer<typeof SCHEMAS.queuePause>,
+    filter?: ScopeFilter,
+  ): AmiCall[] {
     const members = [...store.queueMembers.values()].filter(
-      (m) => m.interface === p.interface && (p.queue === null || m.queue === p.queue),
+      (m) =>
+        m.interface === p.interface &&
+        (p.queue === null || m.queue === p.queue) &&
+        (!filter || filter.queueVisible(m.queue)),
     );
     if (members.length === 0) {
       throw new ActionError('not_found', 'membro não encontrado nesta fila');
     }
-    return {
-      action: 'QueuePause',
-      fields: {
-        Interface: p.interface,
-        Paused: p.paused ? 'true' : 'false',
-        // Sem Queue = pausa/retoma em todas as filas do membro
-        Queue: p.queue ?? undefined,
-        Reason: p.paused && p.reason ? p.reason : undefined,
-      },
-    };
+    const fields = (queue: string | undefined) => ({
+      Interface: p.interface,
+      Paused: p.paused ? 'true' : 'false',
+      Queue: queue,
+      Reason: p.paused && p.reason ? p.reason : undefined,
+    });
+    // "Todas as filas": sem escopo, uma action sem Queue (o Asterisk aplica em todas);
+    // com escopo, uma por fila da empresa — nunca mexe em filas de outra empresa.
+    if (p.queue === null && filter) {
+      return [...new Set(members.map((m) => m.queue))].map((q) => ({
+        action: 'QueuePause',
+        fields: fields(q),
+      }));
+    }
+    return [{ action: 'QueuePause', fields: fields(p.queue ?? undefined) }];
   }
 
   private buildHangup({ store }: ActionTarget, p: z.infer<typeof SCHEMAS.hangup>): AmiCall {
