@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { PROTOCOL_VERSION } from '@astcall/shared';
+import { PROTOCOL_VERSION, WS_PATH } from '@astcall/shared';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { authRoutes, LocalIssuer, TokenVerifier, UserRepository } from './auth/index.js';
 import { ConfigError, loadConfig, localAuthEnabled, type AppConfig } from './config/index.js';
@@ -7,11 +7,12 @@ import { createHttpServer, type RouteHandler } from './http/server.js';
 import { createLogger } from './logger.js';
 import { ServerStore } from './state/ServerStore.js';
 import { Synchronizer } from './sync/Synchronizer.js';
+import { Hub, ServerFeed } from './ws/index.js';
 
 /**
  * Ponto de entrada do backend de tempo real.
  * Mantém, por servidor Asterisk, uma conexão AMI e o estado sincronizado, e atende as rotas
- * de autenticação do modo standalone. O WebSocket entra no próximo item do roadmap.
+ * de autenticação do modo standalone e o WebSocket que entrega o estado aos navegadores.
  */
 async function main(): Promise<void> {
   let config: AppConfig;
@@ -37,11 +38,11 @@ async function main(): Promise<void> {
 
   // ---- Autenticação: valida tokens dos emissores configurados; emite no modo standalone
   let users: UserRepository | undefined;
+  let verifier: TokenVerifier;
   const routes: Record<string, RouteHandler> = {};
   try {
-    const verifier = await TokenVerifier.create(config.auth);
+    verifier = await TokenVerifier.create(config.auth);
     log.info({ issuers: verifier.issuers }, 'Emissores de token aceitos');
-    // (o verifier será usado pelo hub WebSocket no item 5)
     if (localAuthEnabled(config.auth)) {
       users = await UserRepository.open(config.auth.local.usersDbFile);
       const issuer = await LocalIssuer.create(config.auth);
@@ -61,25 +62,17 @@ async function main(): Promise<void> {
   }
   const pruneTimer = setInterval(() => users?.pruneSessions(), 60 * 60_000);
 
-  // ---- Servidor HTTP (rotas de autenticação; o WebSocket usará o mesmo servidor)
-  const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
-  http.listen(config.http.port, config.http.host, () => {
-    log.info({ host: config.http.host, port: config.http.port }, 'Servidor HTTP ouvindo');
-  });
-
-  // ---- Uma conexão AMI + um store de estado por servidor Asterisk
+  // ---- Uma conexão AMI + estado sincronizado + feed WebSocket por servidor Asterisk
   const recorders: AmiRecorder[] = [];
-  const stores = new Map<string, ServerStore>();
-  const syncs = new Map<string, Synchronizer>();
+  const feeds = new Map<string, ServerFeed>();
   const connections = config.servers.map((server) => {
     const store = new ServerStore();
-    stores.set(server.id, store);
 
     // A cada conexão, o Synchronizer zera o estado e o reconstrói com as listas do AMI;
     // ele também aplica os eventos ao vivo ao store.
     const conn = new AmiConnection(server, log);
     const sync = new Synchronizer(conn, store, log); // registra-se como onConnected da conexão
-    syncs.set(server.id, sync);
+    feeds.set(server.id, new ServerFeed(server.id, server.name, { store, sync, conn }));
     store.on('deltas', (ops) =>
       log.debug(
         { server: server.id, deltas: ops.map((d) => `${d.op} ${d.entity} ${d.id}`) },
@@ -95,6 +88,17 @@ async function main(): Promise<void> {
     return conn;
   });
 
+  // ---- Servidor HTTP: rotas de autenticação + WebSocket (WS_PATH) no mesmo endereço
+  const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
+  const hub = new Hub(feeds, verifier, log);
+  hub.attach(http);
+  http.listen(config.http.port, config.http.host, () => {
+    log.info(
+      { host: config.http.host, port: config.http.port, ws: WS_PATH },
+      'Servidor HTTP/WebSocket ouvindo',
+    );
+  });
+
   // ---- Encerramento limpo (Ctrl+C / systemd): Logoff no AMI, fecha HTTP e banco
   let stopping = false;
   const shutdown = async (signal: string) => {
@@ -102,6 +106,8 @@ async function main(): Promise<void> {
     stopping = true;
     log.info({ signal }, 'Encerrando...');
     clearInterval(pruneTimer);
+    hub.close();
+    for (const feed of feeds.values()) feed.close();
     http.close();
     await Promise.allSettled(connections.map((c) => c.stop()));
     await Promise.allSettled(recorders.map((r) => r.close()));

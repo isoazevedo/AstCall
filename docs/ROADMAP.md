@@ -15,17 +15,18 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 
 ## Já implementado
 
-| #   | Funcionalidade                       | Descrição resumida                                                                                                                                                                                                                                                     | Status         |
-| --- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 1   | **Diretrizes do projeto**            | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                                                                                                                           | ✅ Produção    |
-| 2   | **Análise do MonAst**                | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                                                                                                                          | ✅ Produção    |
-| 3   | **Decisões de stack**                | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                                                                                                                                | ✅ Produção    |
-| 4   | **Roadmap**                          | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                                                                                                                                     | ✅ Produção    |
-| 5   | **Monorepo (item 1)**                | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                                                                                                                              | ✅ Produção    |
-| 6   | **Cliente AMI (item 2)**             | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff, Ping e gravador de tráfego (`AMI_RECORD_DIR`). Validado no laboratório (Asterisk 20.9.2).                                                     | ✅ Produção    |
-| 7   | **Estado em memória (item 3)**       | `ServerStore` com endpoints, canais, bridges e chamadas por `Linkedid`, links atravessando canais Local, deltas sem repetição. Testado com 6 cenários gravados no laboratório.                                                                                         | 🔄 Homologação |
-| 8   | **Sincronização (item 4)**           | `Synchronizer`: estado zerado e reconstruído pelas listas do AMI a cada conexão, itens aplicados na ordem do stream (sem buffer), listas vazias com `Error` toleradas, ressincronização com debounce após `Reload`. Validado no laboratório (24 endpoints em ~230 ms). | 🔄 Homologação |
-| 9   | **Autenticação standalone (item 6)** | JWT RS256 (`jose`), usuários em SQLite (`node:sqlite`) com bcrypt, `/auth/login`, `/auth/refresh` (cookie HttpOnly com rotação) e `/auth/logout`, limite de tentativas, `TokenVerifier` multi-emissor, CLI `npm run user` e `npm run keys:generate`.                   | 🔄 Homologação |
+| #   | Funcionalidade                       | Descrição resumida                                                                                                                                                                                                                                                                         | Status         |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| 1   | **Diretrizes do projeto**            | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                                                                                                                                               | ✅ Produção    |
+| 2   | **Análise do MonAst**                | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                                                                                                                                              | ✅ Produção    |
+| 3   | **Decisões de stack**                | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                                                                                                                                                    | ✅ Produção    |
+| 4   | **Roadmap**                          | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                                                                                                                                                         | ✅ Produção    |
+| 5   | **Monorepo (item 1)**                | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                                                                                                                                                  | ✅ Produção    |
+| 6   | **Cliente AMI (item 2)**             | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff, Ping e gravador de tráfego (`AMI_RECORD_DIR`). Validado no laboratório (Asterisk 20.9.2).                                                                         | ✅ Produção    |
+| 7   | **Estado em memória (item 3)**       | `ServerStore` com endpoints, canais, bridges e chamadas por `Linkedid`, links atravessando canais Local, deltas sem repetição. Testado com 6 cenários gravados no laboratório.                                                                                                             | 🔄 Homologação |
+| 8   | **Sincronização (item 4)**           | `Synchronizer`: estado zerado e reconstruído pelas listas do AMI a cada conexão, itens aplicados na ordem do stream (sem buffer), listas vazias com `Error` toleradas, ressincronização com debounce após `Reload`. Validado no laboratório (24 endpoints em ~230 ms).                     | 🔄 Homologação |
+| 9   | **Autenticação standalone (item 6)** | JWT RS256 (`jose`), usuários em SQLite (`node:sqlite`) com bcrypt, `/auth/login`, `/auth/refresh` (cookie HttpOnly com rotação) e `/auth/logout`, limite de tentativas, `TokenVerifier` multi-emissor, CLI `npm run user` e `npm run keys:generate`.                                       | 🔄 Homologação |
+| 10  | **Hub WebSocket (item 5)**           | `/monitor-ws` com `ws`: autenticação na 1ª mensagem, renovação e expiração do token, assinatura por servidor com permissão `view`, snapshot + deltas em lotes de 50 ms numerados (`epoch`/`seq`), `resync`, ping e proteção contra cliente lento. Testado ponta a ponta com o laboratório. | 🔄 Homologação |
 
 ---
 
@@ -144,7 +145,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 5. Hub WebSocket (snapshot + deltas)
+#### 5. Hub WebSocket (snapshot + deltas) — 🔄
 
 **O que é:** Servidor WebSocket que entrega snapshot inicial e atualizações incrementais por servidor Asterisk.
 
@@ -161,7 +162,8 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 **Arquivos envolvidos:**
 
-- `apps/realtime/src/ws/Hub.ts` — conexões, autenticação, inscrições, broadcast
+- `apps/realtime/src/ws/Hub.ts` — conexões, autenticação, inscrições
+- `apps/realtime/src/ws/ServerFeed.ts` — lotes, numeração, snapshots e status por servidor
 - `packages/shared/src/protocol.ts` — tipos das mensagens
 
 **Esforço estimado:** M
@@ -539,3 +541,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-16 | Claude Code | Item 2 validado no laboratório; item 3 implementado com fixtures reais (chamada, não atendida, transferências cega e assistida, fila, registro); refinado o item 4 (Reload seletivo)                |
 | 2026-10-16 | Claude Code | Item 4 implementado (sincronização em ordem de stream, debounce de Reload) e validado no laboratório                                                                                                |
 | 2026-10-16 | Claude Code | Item 6 implementado (autenticação standalone) e testado ponta a ponta                                                                                                                               |
+| 2026-10-16 | Claude Code | Item 5 implementado (hub WebSocket) e testado ponta a ponta com o laboratório; backend pronto para o primeiro painel (item 7)                                                                       |
