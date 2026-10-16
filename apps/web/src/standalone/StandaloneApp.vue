@@ -18,7 +18,10 @@ const userName = ref('');
 /** Lê o nome de exibição do token (só para mostrar; quem valida é o backend). */
 function nameFromToken(token: string): string {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/')));
+    // base64url → bytes → texto UTF-8 (atob sozinho trata os bytes como Latin-1 e quebra acentos)
+    const b64 = token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(bytes));
     return payload.name || payload.sub || '';
   } catch {
     return '';
