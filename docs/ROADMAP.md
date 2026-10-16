@@ -280,7 +280,9 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 10. Conferências ConfBridge
+#### 10. Conferências ConfBridge — ⏸️
+
+> **Pausado (2026-10-16):** no AzCall as conferências são operadas por discagem; o painel não precisa delas por ora.
 
 **O que é:** Monitorar salas ConfBridge e participantes (admin, mudo, falando), com estado de bloqueio e gravação.
 
@@ -303,7 +305,9 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 11. Chamadas estacionadas (parking)
+#### 11. Chamadas estacionadas (parking) — ⏸️
+
+> **Pausado (2026-10-16):** no AzCall o estacionamento é feito por discagem; o painel não precisa dele por ora.
 
 **O que é:** Exibir chamadas estacionadas por lote e vaga, com tempo restante.
 
@@ -564,3 +568,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-16 | Claude Code | Item 8 documentado (aguarda validação no laboratório); novo item 23 (AMI sobre TLS)                                                                                                                 |
 | 2026-10-16 | Claude Code | Item 8 validado no laboratório (usuário `astcall`: listas OK, `Command` recusado, eventos de chamada passam pelo filtro)                                                                            |
 | 2026-10-16 | Claude Code | Item 9 implementado (filas) com gravações reais do laboratório                                                                                                                                      |
+| 2026-10-16 | Claude Code | Itens 10 e 11 pausados (operados por discagem no AzCall); próximo: item 12                                                                                                                          |
