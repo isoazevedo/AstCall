@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { PROTOCOL_VERSION, WS_PATH } from '@astcall/shared';
+import { ActionService, type ActionTarget } from './actions/index.js';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { authRoutes, LocalIssuer, TokenVerifier, UserRepository } from './auth/index.js';
 import { ConfigError, loadConfig, localAuthEnabled, type AppConfig } from './config/index.js';
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
   // ---- Uma conexão AMI + estado sincronizado + feed WebSocket por servidor Asterisk
   const recorders: AmiRecorder[] = [];
   const feeds = new Map<string, ServerFeed>();
+  const actionTargets = new Map<string, ActionTarget>();
   const connections = config.servers.map((server) => {
     const store = new ServerStore();
 
@@ -73,6 +75,7 @@ async function main(): Promise<void> {
     const conn = new AmiConnection(server, log);
     const sync = new Synchronizer(conn, store, log); // registra-se como onConnected da conexão
     feeds.set(server.id, new ServerFeed(server.id, server.name, { store, sync, conn }));
+    actionTargets.set(server.id, { conn, store });
     store.on('deltas', (ops) =>
       log.debug(
         { server: server.id, deltas: ops.map((d) => `${d.op} ${d.entity} ${d.id}`) },
@@ -90,7 +93,8 @@ async function main(): Promise<void> {
 
   // ---- Servidor HTTP: rotas de autenticação + WebSocket (WS_PATH) no mesmo endereço
   const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
-  const hub = new Hub(feeds, verifier, log);
+  const actions = new ActionService(actionTargets, log);
+  const hub = new Hub(feeds, verifier, log, { actions });
   hub.attach(http);
   http.listen(config.http.port, config.http.host, () => {
     log.info(

@@ -1,3 +1,5 @@
+import type { Permission } from './auth.js';
+
 /**
  * Identificador de um servidor Asterisk (ex.: "pbx1").
  * Toda entidade de estado e toda mensagem WebSocket carregam esse id,
@@ -13,4 +15,9 @@ export interface ServerInfo {
   id: ServerId;
   name: string;
   status: ServerConnectionStatus;
+  /**
+   * Permissões do usuário neste servidor (já somando o curinga "*"). O painel usa para
+   * mostrar só os botões permitidos; o backend valida de novo a cada ação.
+   */
+  permissions: Permission[];
 }

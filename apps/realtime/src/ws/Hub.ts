@@ -4,6 +4,7 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { z } from 'zod';
 import {
   hasPermission,
+  permissionsFor,
   PROTOCOL_VERSION,
   WS_CLOSE,
   WS_PATH,
@@ -11,6 +12,7 @@ import {
   type ServerMessage,
   type TokenClaims,
 } from '@astcall/shared';
+import { ActionError, type ActionService } from '../actions/index.js';
 import { AuthError, type TokenVerifier } from '../auth/tokens.js';
 import type { Logger } from '../logger.js';
 import type { FeedSubscriber, ServerFeed } from './ServerFeed.js';
@@ -24,6 +26,8 @@ export interface HubOptions {
   pingIntervalMs?: number;
   /** Acima disso de dados pendentes no socket, o cliente é considerado lento e desconectado. */
   maxBufferedBytes?: number;
+  /** Executor das ações pedidas pelo painel (sem ele, toda ação é recusada). */
+  actions?: Pick<ActionService, 'execute'>;
 }
 
 const clientMessageSchema = z.discriminatedUnion('t', [
@@ -31,6 +35,13 @@ const clientMessageSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('subscribe'), servers: z.array(z.string()).max(100) }),
   z.object({ t: z.literal('unsubscribe'), servers: z.array(z.string()).max(100) }),
   z.object({ t: z.literal('resync'), server: z.string() }),
+  z.object({
+    t: z.literal('action'),
+    reqId: z.string().min(1).max(64),
+    server: z.string(),
+    name: z.string().max(32),
+    params: z.unknown(),
+  }),
 ]);
 
 /**
@@ -42,7 +53,8 @@ export class Hub {
   private readonly sessions = new Set<Session>();
   private readonly pingTimer: NodeJS.Timeout;
   private readonly log: Logger;
-  readonly opts: Required<HubOptions>;
+  readonly opts: Required<Omit<HubOptions, 'actions'>>;
+  readonly actions: HubOptions['actions'];
 
   constructor(
     private readonly feeds: Map<ServerId, ServerFeed>,
@@ -51,6 +63,7 @@ export class Hub {
     options: HubOptions = {},
   ) {
     this.log = log.child({ mod: 'ws' });
+    this.actions = options.actions;
     this.opts = {
       authTimeoutMs: options.authTimeoutMs ?? 5_000,
       expiryGraceMs: options.expiryGraceMs ?? 5_000,
@@ -206,6 +219,9 @@ class Session implements FeedSubscriber {
       case 'resync':
         this.subscribed.get(msg.server)?.sendSnapshot(this);
         break;
+      case 'action':
+        await this.runAction(msg.reqId, msg.server, msg.name, msg.params);
+        break;
     }
   }
 
@@ -247,11 +263,37 @@ class Session implements FeedSubscriber {
       protocol: PROTOCOL_VERSION,
       user: { sub: claims.sub, name: claims.name },
       expiresAt: claims.exp * 1000,
-      servers: this.hub
-        .visibleFeeds(claims)
-        .map((f) => ({ id: f.serverId, name: f.name, status: f.status })),
+      servers: this.hub.visibleFeeds(claims).map((f) => ({
+        id: f.serverId,
+        name: f.name,
+        status: f.status,
+        permissions: permissionsFor(claims.perms, f.serverId),
+      })),
     });
     if (first) this.log.info('Cliente WebSocket autenticado');
+  }
+
+  /** Executa uma ação e responde com `action_result` (o efeito chega depois, pelos deltas). */
+  private async runAction(
+    reqId: string,
+    server: ServerId,
+    name: string,
+    params: unknown,
+  ): Promise<void> {
+    const claims = this.claims!;
+    try {
+      if (!this.hub.actions) throw new ActionError('forbidden', 'ações desabilitadas');
+      // Sem permissão de ver o servidor, não age nele
+      if (!this.hub.feedFor(claims, server)) {
+        throw new ActionError('forbidden', `sem acesso ao servidor ${server}`);
+      }
+      await this.hub.actions.execute(claims, server, name, params);
+      this.send({ t: 'action_result', reqId, ok: true });
+    } catch (err) {
+      const code = err instanceof ActionError ? err.code : 'ami_error';
+      const error = err instanceof ActionError ? err.message : 'falha ao executar a ação';
+      this.send({ t: 'action_result', reqId, ok: false, code, error });
+    }
   }
 
   private scheduleExpiry(expMs: number): void {

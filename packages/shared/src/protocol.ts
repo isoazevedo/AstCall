@@ -1,3 +1,4 @@
+import type { ActionName, ActionParams } from './actions.js';
 import type { DeltaOp, ServerSnapshot } from './delta.js';
 import type { ServerConnectionStatus, ServerId, ServerInfo } from './servers.js';
 
@@ -11,6 +12,8 @@ import type { ServerConnectionStatus, ServerId, ServerInfo } from './servers.js'
  * 4. Depois vêm `delta` numerados: `seq` = seq anterior + 1 dentro do mesmo `epoch`.
  *    Lacuna na numeração ou `epoch` diferente → o cliente envia `resync`.
  * 5. Antes de o token expirar, o cliente envia outro `auth` com um token novo.
+ * 6. Ações: o cliente envia `action` com um `reqId` próprio e recebe `action_result`
+ *    com o mesmo `reqId` (o efeito em si chega depois, pelos deltas).
  */
 
 /** Versão do protocolo; mudanças incompatíveis devem incrementá-la. */
@@ -56,7 +59,19 @@ export interface ResyncMessage {
   server: ServerId;
 }
 
-export type ClientMessage = AuthMessage | SubscribeMessage | UnsubscribeMessage | ResyncMessage;
+/** Pede uma ação (desligar, transferir, pausar...). */
+export type ActionMessage = {
+  [K in ActionName]: {
+    t: 'action';
+    reqId: string;
+    server: ServerId;
+    name: K;
+    params: ActionParams[K];
+  };
+}[ActionName];
+
+export type ClientMessage =
+  AuthMessage | SubscribeMessage | UnsubscribeMessage | ResyncMessage | ActionMessage;
 
 // ---------- Servidor → cliente ----------
 
@@ -92,6 +107,16 @@ export interface DeltaMessage {
   ops: DeltaOp[];
 }
 
+/** Resultado de uma ação. `code` permite à interface traduzir o erro. */
+export interface ActionResultMessage {
+  t: 'action_result';
+  reqId: string;
+  ok: boolean;
+  /** forbidden | invalid | not_found | not_bridged | rate_limited | ami_error | disconnected */
+  code?: string;
+  error?: string;
+}
+
 export interface ErrorMessage {
   t: 'error';
   code: string;
@@ -99,4 +124,9 @@ export interface ErrorMessage {
 }
 
 export type ServerMessage =
-  AuthOkMessage | ServerStatusMessage | SnapshotMessage | DeltaMessage | ErrorMessage;
+  | AuthOkMessage
+  | ServerStatusMessage
+  | SnapshotMessage
+  | DeltaMessage
+  | ActionResultMessage
+  | ErrorMessage;

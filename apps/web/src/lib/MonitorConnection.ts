@@ -1,5 +1,8 @@
 import {
   WS_CLOSE,
+  type ActionName,
+  type ActionParams,
+  type ActionResultMessage,
   type ClientMessage,
   type ServerMessage,
   type TokenResponse,
@@ -48,6 +51,11 @@ export class MonitorConnection {
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private renewTimer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
+  private reqSeq = 0;
+  private readonly pendingActions = new Map<
+    string,
+    { resolve: (r: ActionResultMessage) => void; timer: ReturnType<typeof setTimeout> }
+  >();
   private readonly opts: Required<Omit<MonitorConnectionOptions, 'baseUrl'>> & { baseUrl?: string };
 
   constructor(options: MonitorConnectionOptions) {
@@ -73,6 +81,29 @@ export class MonitorConnection {
     this.ws?.close(1000, 'cliente encerrou');
     this.ws = undefined;
     this.setState('stopped');
+  }
+
+  /**
+   * Pede uma ação ao backend e aguarda o `action_result` (no máximo 10 s).
+   * Nunca rejeita: falhas viram { ok: false, code, error }.
+   */
+  sendAction<K extends ActionName>(
+    server: string,
+    name: K,
+    params: ActionParams[K],
+  ): Promise<ActionResultMessage> {
+    const reqId = `a${++this.reqSeq}`;
+    if (this.ws?.readyState !== 1 || this.state !== 'online') {
+      return Promise.resolve(fail(reqId, 'disconnected', 'sem conexão com o servidor'));
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingActions.delete(reqId);
+        resolve(fail(reqId, 'timeout', 'o servidor não respondeu a tempo'));
+      }, 10_000);
+      this.pendingActions.set(reqId, { resolve, timer });
+      this.send({ t: 'action', reqId, server, name, params } as ClientMessage);
+    });
   }
 
   /** Pede um snapshot novo de um servidor (ex.: lacuna na numeração dos deltas). */
@@ -113,6 +144,15 @@ export class MonitorConnection {
     } catch {
       return;
     }
+    if (msg.t === 'action_result') {
+      const pending = this.pendingActions.get(msg.reqId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pendingActions.delete(msg.reqId);
+        pending.resolve(msg);
+      }
+      return;
+    }
     if (msg.t === 'auth_ok') {
       const firstAuth = this.state !== 'online';
       this.failures = 0;
@@ -128,6 +168,12 @@ export class MonitorConnection {
     if (ws !== this.ws) return; // conexão antiga
     this.ws = undefined;
     clearTimeout(this.renewTimer);
+    // Ações sem resposta: a conexão caiu, não dá para saber se foram executadas
+    for (const [reqId, p] of this.pendingActions) {
+      clearTimeout(p.timer);
+      p.resolve(fail(reqId, 'disconnected', 'a conexão caiu antes da confirmação'));
+    }
+    this.pendingActions.clear();
     if (this.stopped) return;
     // Toda reconexão busca um token novo no token-url; se a sessão acabou, ele responde
     // 401 e o estado vira "auth-required". Códigos de auth só aparecem no log.
@@ -196,4 +242,8 @@ export class MonitorConnection {
     this.state = state;
     this.opts.onState(state);
   }
+}
+
+function fail(reqId: string, code: string, error: string): ActionResultMessage {
+  return { t: 'action_result', reqId, ok: false, code, error };
 }

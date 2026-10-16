@@ -54,7 +54,12 @@ const endpointUpsert = (state: 'INUSE' | 'NOT_INUSE'): DeltaOp => ({
 
 describe('serverState', () => {
   it('aplica snapshot e deltas em sequência', () => {
-    const s = createServerState({ id: 'pbx1', name: 'PBX', status: 'ready' });
+    const s = createServerState({
+      id: 'pbx1',
+      name: 'PBX',
+      status: 'ready',
+      permissions: ['view'],
+    });
     applySnapshot(s, snapshot(1, 5));
     expect(s.hasSnapshot).toBe(true);
     expect(applyDelta(s, delta(1, 6, [endpointUpsert('INUSE')]))).toBe('ok');
@@ -66,7 +71,12 @@ describe('serverState', () => {
   });
 
   it('detecta lacuna, epoch diferente e ausência de snapshot', () => {
-    const s = createServerState({ id: 'pbx1', name: 'PBX', status: 'ready' });
+    const s = createServerState({
+      id: 'pbx1',
+      name: 'PBX',
+      status: 'ready',
+      permissions: ['view'],
+    });
     expect(applyDelta(s, delta(1, 1, []))).toBe('gap'); // sem snapshot
     applySnapshot(s, snapshot(1, 0));
     expect(applyDelta(s, delta(1, 2, [endpointUpsert('INUSE')]))).toBe('gap'); // pulou o 1
@@ -211,7 +221,7 @@ describe('MonitorConnection', () => {
     protocol: 1,
     user: { sub: 'ana', name: 'Ana' },
     expiresAt,
-    servers: [{ id: 'pbx1', name: 'PBX', status: 'ready' }],
+    servers: [{ id: 'pbx1', name: 'PBX', status: 'ready', permissions: ['view'] }],
   });
 
   it('busca o token, autentica e assina os servidores visíveis', async () => {

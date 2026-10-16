@@ -14,12 +14,13 @@ import {
   type ServerMessage,
   type ServerPermissions,
 } from '@astcall/shared';
+import { ActionError } from '../../src/actions/index.js';
 import { LocalIssuer, TokenVerifier } from '../../src/auth/index.js';
 import type { AuthConfig } from '../../src/config/index.js';
 import { applyEvent } from '../../src/handlers/index.js';
 import { createLogger } from '../../src/logger.js';
 import { ServerStore } from '../../src/state/ServerStore.js';
-import { compact, Hub, ServerFeed } from '../../src/ws/index.js';
+import { compact, Hub, ServerFeed, type HubOptions } from '../../src/ws/index.js';
 
 const log = createLogger('silent', false);
 
@@ -87,7 +88,7 @@ let servers: Record<
 >;
 const clients: WebSocket[] = [];
 
-function setup(hubOptions = {}) {
+function setup(hubOptions: HubOptions = {}) {
   servers = {};
   const feeds = new Map<string, ServerFeed>();
   for (const id of ['pbx1', 'pbx2']) {
@@ -367,5 +368,60 @@ describe('compact', () => {
       { op: 'remove', entity: 'bridge', id: 'b' },
     ]);
     expect(ops).toEqual([up('a', '2'), { op: 'remove', entity: 'bridge', id: 'b' }]);
+  });
+});
+
+describe('ações pelo WebSocket', () => {
+  it('auth_ok informa as permissões efetivas por servidor', async () => {
+    const c = await client();
+    c.send({ t: 'auth', token: await token({ '*': ['view'], pbx1: ['hangup'] }) });
+    const ok = await c.next('auth_ok');
+    const pbx1 = ok.servers.find((s) => s.id === 'pbx1');
+    expect(pbx1?.permissions.sort()).toEqual(['hangup', 'view']);
+  });
+
+  it('executa e responde action_result com o mesmo reqId', async () => {
+    const calls: unknown[] = [];
+    await new Promise<void>((r) => {
+      hub.close();
+      http.close(() => r());
+    });
+    await setup({
+      actions: {
+        execute: async (claims: { sub: string }, server: string, name: string, params: unknown) => {
+          calls.push({ sub: claims.sub, server, name, params });
+          if (name === 'hangup') throw new ActionError('not_found', 'a chamada já terminou');
+        },
+      },
+    });
+    const c = await authedClient({ pbx1: ['view', 'queue', 'hangup'] });
+    c.send({ t: 'action', reqId: 'r1', server: 'pbx1', name: 'queuePause', params: { x: 1 } });
+    expect(await c.next('action_result', (m) => m.reqId === 'r1')).toEqual({
+      t: 'action_result',
+      reqId: 'r1',
+      ok: true,
+    });
+    c.send({ t: 'action', reqId: 'r2', server: 'pbx1', name: 'hangup', params: {} });
+    expect(await c.next('action_result', (m) => m.reqId === 'r2')).toMatchObject({
+      ok: false,
+      code: 'not_found',
+      error: 'a chamada já terminou',
+    });
+    // sem permissão de ver o servidor: nem chega ao executor
+    c.send({ t: 'action', reqId: 'r3', server: 'pbx2', name: 'hangup', params: {} });
+    expect(await c.next('action_result', (m) => m.reqId === 'r3')).toMatchObject({
+      ok: false,
+      code: 'forbidden',
+    });
+    expect(calls).toEqual([
+      { sub: 'ana', server: 'pbx1', name: 'queuePause', params: { x: 1 } },
+      { sub: 'ana', server: 'pbx1', name: 'hangup', params: {} },
+    ]);
+  });
+
+  it('sem executor configurado, toda ação é recusada', async () => {
+    const c = await authedClient();
+    c.send({ t: 'action', reqId: 'r1', server: 'pbx1', name: 'hangup', params: {} });
+    expect(await c.next('action_result')).toMatchObject({ ok: false, code: 'forbidden' });
   });
 });

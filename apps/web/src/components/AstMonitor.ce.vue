@@ -16,7 +16,9 @@ import { LayoutDashboard, ListOrdered, Radio, Wifi, WifiOff } from 'lucide-vue-n
 import { useMonitorStore } from '../stores/monitor';
 import CallList from './CallList.ce.vue';
 import EndpointGrid from './EndpointGrid.ce.vue';
+import ActionDialog from './ActionDialog.ce.vue';
 import QueuePanel from './QueuePanel.ce.vue';
+import ToastHost from './ToastHost.ce.vue';
 
 const props = withDefaults(defineProps<{ wsUrl?: string; tokenUrl: string }>(), {
   wsUrl: '/monitor-ws',
@@ -152,6 +154,9 @@ const stats = computed(() => {
       <EndpointGrid :endpoints="store.endpoints" :loading="!store.active?.hasSnapshot" />
     </template>
     <QueuePanel v-else :queues="store.queues" :loading="!store.active?.hasSnapshot" />
+
+    <ActionDialog />
+    <ToastHost />
   </div>
 </template>
 

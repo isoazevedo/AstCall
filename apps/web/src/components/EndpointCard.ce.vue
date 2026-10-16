@@ -1,8 +1,11 @@
 <script setup lang="ts">
 /** Cartão de um ramal: número, situação (cor do tema), aparelho e canais ativos. */
+import { PhoneOutgoing } from 'lucide-vue-next';
 import type { EndpointView } from '../lib/view';
+import { useMonitorStore } from '../stores/monitor';
 
 defineProps<{ endpoint: EndpointView }>();
+const store = useMonitorStore();
 </script>
 
 <template>
@@ -22,6 +25,15 @@ defineProps<{ endpoint: EndpointView }>();
     <div v-if="endpoint.activeChannels > 0" class="ep-calls">
       {{ endpoint.activeChannels }} {{ endpoint.activeChannels === 1 ? 'canal' : 'canais' }}
     </div>
+    <button
+      v-if="store.can('originate') && endpoint.group !== 'offline'"
+      type="button"
+      class="ep-call"
+      :title="`Ligar a partir do ramal ${endpoint.id}`"
+      @click="store.openDialog({ kind: 'originate', from: endpoint.id })"
+    >
+      <PhoneOutgoing :size="13" aria-hidden="true" /> Ligar
+    </button>
   </article>
 </template>
 
@@ -82,6 +94,25 @@ defineProps<{ endpoint: EndpointView }>();
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ep-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 0;
+  border-radius: var(--ast-radius);
+  background: rgba(var(--ast-primary-rgb), 0.12);
+  color: var(--ast-primary);
+  cursor: pointer;
+}
+.ep-call:hover {
+  background: var(--ast-primary);
+  color: #fff;
 }
 .ep-calls {
   margin-top: 0.25rem;

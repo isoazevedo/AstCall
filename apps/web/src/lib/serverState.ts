@@ -4,6 +4,7 @@ import type {
   Channel,
   DeltaMessage,
   Endpoint,
+  Permission,
   Queue,
   QueueEntry,
   QueueMember,
@@ -20,6 +21,8 @@ export interface ServerState {
   id: string;
   name: string;
   status: ServerConnectionStatus;
+  /** Permissões do usuário neste servidor (para mostrar os botões de ação). */
+  permissions: Permission[];
   /** Já recebeu um snapshot do epoch atual (o estado na tela é confiável)? */
   hasSnapshot: boolean;
   epoch: number | null;
@@ -38,6 +41,7 @@ export function createServerState(info: ServerInfo): ServerState {
     id: info.id,
     name: info.name,
     status: info.status,
+    permissions: info.permissions ?? [],
     hasSnapshot: false,
     epoch: null,
     seq: 0,

@@ -37,6 +37,11 @@ export function hasPermission(
   );
 }
 
+/** Permissões efetivas em um servidor: as específicas somadas às do curinga "*". */
+export function permissionsFor(perms: ServerPermissions, serverId: ServerId): Permission[] {
+  return [...new Set([...(perms[serverId] ?? []), ...(perms[ALL_SERVERS] ?? [])])];
+}
+
 /**
  * Resposta do endpoint de token (`token-url` do Web Component).
  * No modo standalone é o `POST /auth/refresh` do backend; no modo integrado, um endpoint do

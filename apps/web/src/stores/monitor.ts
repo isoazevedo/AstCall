@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import type { ServerMessage } from '@astcall/shared';
+import type {
+  ActionName,
+  ActionParams,
+  ActionResultMessage,
+  Permission,
+  ServerMessage,
+} from '@astcall/shared';
 import { MonitorConnection, type ConnectionState } from '../lib/MonitorConnection';
 import { applyDelta, applySnapshot, createServerState, type ServerState } from '../lib/serverState';
 import { callView, compareEndpointIds, endpointView, queueView } from '../lib/view';
@@ -21,6 +27,13 @@ export const useMonitorStore = defineStore('monitor', () => {
   const servers = reactive<Record<string, ServerState>>({});
   const activeServerId = ref<string | null>(null);
   let conn: MonitorConnection | undefined;
+
+  /** Avisos rápidos no canto da tela (resultado das ações). */
+  const toasts = ref<Toast[]>([]);
+  let toastSeq = 0;
+
+  /** Diálogo de ação aberto (desligar, transferir, ligar, pausar...) ou null. */
+  const dialog = ref<ActionDialog | null>(null);
 
   // ---------------------------------------------------------------- derivados
   const serverList = computed(() => Object.values(servers));
@@ -62,6 +75,11 @@ export const useMonitorStore = defineStore('monitor', () => {
       active.value.status !== 'ready',
   );
 
+  /** O usuário tem a permissão no servidor ativo? (só para mostrar botões; o backend revalida) */
+  function can(perm: Permission): boolean {
+    return active.value?.permissions.includes(perm) ?? false;
+  }
+
   // ---------------------------------------------------------------- ações
   function connect(wsUrl: string, tokenUrl: string): void {
     conn?.stop();
@@ -79,6 +97,40 @@ export const useMonitorStore = defineStore('monitor', () => {
     conn = undefined;
   }
 
+  /** Executa uma ação no servidor ativo e mostra o resultado num aviso. */
+  async function act<K extends ActionName>(
+    name: K,
+    params: ActionParams[K],
+    successText: string,
+  ): Promise<ActionResultMessage> {
+    const server = activeServerId.value;
+    const result =
+      conn && server
+        ? await conn.sendAction(server, name, params)
+        : ({
+            t: 'action_result',
+            reqId: '',
+            ok: false,
+            error: 'sem conexão',
+          } as ActionResultMessage);
+    if (result.ok) notify('success', successText);
+    return result;
+  }
+
+  function notify(tone: Toast['tone'], text: string): void {
+    const id = ++toastSeq;
+    toasts.value.push({ id, tone, text });
+    setTimeout(() => (toasts.value = toasts.value.filter((t) => t.id !== id)), 4000);
+  }
+
+  function openDialog(d: ActionDialog): void {
+    dialog.value = d;
+  }
+
+  function closeDialog(): void {
+    dialog.value = null;
+  }
+
   function selectServer(id: string): void {
     if (servers[id]) activeServerId.value = id;
   }
@@ -89,8 +141,12 @@ export const useMonitorStore = defineStore('monitor', () => {
         user.value = msg.user;
         const visible = new Set(msg.servers.map((s) => s.id));
         for (const info of msg.servers) {
-          if (!servers[info.id]) servers[info.id] = createServerState(info);
-          else servers[info.id]!.status = info.status;
+          const existing = servers[info.id];
+          if (!existing) servers[info.id] = createServerState(info);
+          else {
+            existing.status = info.status;
+            existing.permissions = info.permissions ?? [];
+          }
         }
         for (const id of Object.keys(servers)) if (!visible.has(id)) delete servers[id];
         if (!activeServerId.value || !visible.has(activeServerId.value)) {
@@ -131,9 +187,29 @@ export const useMonitorStore = defineStore('monitor', () => {
     queues,
     waitingTotal,
     stale,
+    toasts,
+    dialog,
+    can,
+    act,
+    notify,
+    openDialog,
+    closeDialog,
     connect,
     disconnect,
     selectServer,
     handleMessage,
   };
 });
+
+export interface Toast {
+  id: number;
+  tone: 'success' | 'danger' | 'info';
+  text: string;
+}
+
+/** Qual diálogo de ação está aberto e sobre o quê. */
+export type ActionDialog =
+  | { kind: 'hangup'; uniqueid: string; label: string }
+  | { kind: 'transfer'; uniqueid: string; label: string }
+  | { kind: 'originate'; from: string }
+  | { kind: 'pause'; queue: string; interface: string; label: string; pause: boolean };

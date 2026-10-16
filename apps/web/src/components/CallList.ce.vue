@@ -5,11 +5,15 @@
  * Conceitos: `v-for` repete um trecho para cada item; o `:key` identifica cada linha para
  * o Vue atualizar só o que mudou (sem recriar a lista inteira a cada delta).
  */
-import { ArrowLeftRight, CircleDot, PhoneCall } from 'lucide-vue-next';
+import { ArrowLeftRight, CircleDot, PhoneCall, PhoneForwarded, PhoneOff } from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
-import { formatDuration, type CallView } from '../lib/view';
+import { formatDuration, type CallView, type Party } from '../lib/view';
+import { useMonitorStore } from '../stores/monitor';
 
 defineProps<{ calls: CallView[]; loading: boolean }>();
+
+const store = useMonitorStore();
+const partyLabel = (p: Party) => (p.name ? `${p.num} (${p.name})` : p.num);
 
 const now = useNow();
 
@@ -47,6 +51,40 @@ function duration(call: CallView): string {
                   <span class="party">
                     <strong>{{ p.num }}</strong>
                     <small v-if="p.name">{{ p.name }}</small>
+                    <span class="party-actions">
+                      <button
+                        v-if="store.can('transfer') && call.status === 'talking'"
+                        type="button"
+                        class="icon-btn"
+                        :title="`Transferir ${p.num}`"
+                        :aria-label="`Transferir ${p.num}`"
+                        @click="
+                          store.openDialog({
+                            kind: 'transfer',
+                            uniqueid: p.uniqueid,
+                            label: partyLabel(p),
+                          })
+                        "
+                      >
+                        <PhoneForwarded :size="14" />
+                      </button>
+                      <button
+                        v-if="store.can('hangup')"
+                        type="button"
+                        class="icon-btn danger"
+                        :title="`Desligar ${p.num}`"
+                        :aria-label="`Desligar ${p.num}`"
+                        @click="
+                          store.openDialog({
+                            kind: 'hangup',
+                            uniqueid: p.uniqueid,
+                            label: partyLabel(p),
+                          })
+                        "
+                      >
+                        <PhoneOff :size="14" />
+                      </button>
+                    </span>
                   </span>
                 </template>
               </div>
@@ -123,6 +161,34 @@ function duration(call: CallView): string {
   display: inline-flex;
   flex-direction: column;
   line-height: 1.2;
+}
+.party-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: var(--ast-radius);
+  background: rgba(var(--ast-primary-rgb), 0.12);
+  color: var(--ast-primary);
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: var(--ast-primary);
+  color: #fff;
+}
+.icon-btn.danger {
+  background: rgba(var(--ast-danger-rgb), 0.12);
+  color: var(--ast-danger);
+}
+.icon-btn.danger:hover {
+  background: var(--ast-danger);
+  color: #fff;
 }
 .party strong {
   color: var(--ast-heading);

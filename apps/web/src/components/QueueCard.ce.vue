@@ -6,11 +6,23 @@
  * aqui `wait()` e `ago()` usam o relógio compartilhado `now` (composable useNow), então o
  * Vue redesenha só esses textos a cada segundo.
  */
-import { Clock, PauseCircle, Users } from 'lucide-vue-next';
+import { Clock, Pause, PauseCircle, Play, Users } from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
 import { formatDuration, strategyLabel, waitTone, type QueueView } from '../lib/view';
+import { useMonitorStore } from '../stores/monitor';
 
-defineProps<{ queue: QueueView }>();
+const props = defineProps<{ queue: QueueView }>();
+const store = useMonitorStore();
+
+function togglePause(m: QueueView['members'][number]): void {
+  store.openDialog({
+    kind: 'pause',
+    queue: props.queue.name,
+    interface: m.interface,
+    label: m.label,
+    pause: !m.paused,
+  });
+}
 
 const now = useNow();
 
@@ -101,6 +113,18 @@ function ago(since: number | null): string {
               <PauseCircle v-if="m.paused" :size="12" aria-hidden="true" />
               {{ m.stateLabel }}
             </span>
+            <button
+              v-if="store.can('queue') && m.rank !== 3"
+              type="button"
+              class="m-pause"
+              :class="{ resume: m.paused }"
+              :title="m.paused ? `Retomar ${m.label}` : `Pausar ${m.label}`"
+              @click="togglePause(m)"
+            >
+              <Play v-if="m.paused" :size="12" aria-hidden="true" />
+              <Pause v-else :size="12" aria-hidden="true" />
+              {{ m.paused ? 'Retomar' : 'Pausar' }}
+            </button>
             <span class="m-info">
               <template v-if="m.paused">
                 {{ m.pausedReason || 'sem motivo' }} · {{ ago(m.pausedSince) }}
@@ -206,6 +230,27 @@ function ago(since: number | null): string {
 }
 .m-name {
   min-width: 4.5rem;
+}
+.m-pause {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 0;
+  border-radius: var(--ast-radius);
+  background: rgba(var(--ast-warning-rgb), 0.16);
+  color: var(--ast-warning);
+  cursor: pointer;
+}
+.m-pause.resume {
+  background: rgba(var(--ast-success-rgb), 0.16);
+  color: var(--ast-success);
+}
+.m-pause:hover {
+  filter: brightness(0.95);
 }
 .m-info {
   margin-left: auto;
