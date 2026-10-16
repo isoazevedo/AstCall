@@ -148,10 +148,12 @@ asterisk -rx "manager show command Originate"
 
 - Sintaxe **clássica** (expressão regular sobre o texto do evento), aceita no Asterisk 20 e 22. As
   versões recentes também têm uma sintaxe avançada (`eventfilter(...)`), mas a clássica basta aqui.
-- Cada `Event: X` casa **pelo prefixo**: `Event: Queue` cobre `QueueCallerJoin`, `QueueMemberStatus`
-  etc.; `Event: Bridge` cobre `BridgeCreate/Enter/Leave/Destroy`. O efeito colateral (ex.: `Event:
-Hangup` também deixa passar `HangupRequest`) é irrelevante em volume e os handlers ignoram o que
-  não conhecem.
+- Cada `Event: X` casa com qualquer evento **cujo nome contém X** (comportamento observado no
+  Asterisk 20.9: o filtro é comparado só com o nome do evento, como expressão regular sem âncoras).
+  Assim `Event: Queue` cobre `QueueCallerJoin`, `QueueMemberStatus` etc. e `Event: Bridge` cobre
+  `BridgeCreate/Enter/Leave/Destroy`. Efeito colateral: passam alguns eventos a mais —
+  `SoftHangupRequest` (contém `Hangup`), `MusicOnHoldStart/Stop` (contém `Hold`), `LocalBridge`
+  (contém `Bridge`) —, irrelevantes em volume; os handlers ignoram o que não conhecem.
 - Os itens de lista da sincronização (`EndpointList`, `CoreShowChannel`...) são respostas a actions e,
   pelo que o código do Asterisk indica, não passam pelo filtro. Mesmo assim estão incluídos: se algum
   for filtrado, a sincronização nunca termina (a lista não chega ao fim) e o AstCall reconecta em loop.
@@ -164,8 +166,8 @@ Gravação real do laboratório (Asterisk 20, AzCall, 2026-10-16), só eventos a
 |                                               | Eventos        |
 | --------------------------------------------- | -------------- |
 | Total recebido (usuário `admin`, sem filtros) | 2846           |
-| Passariam com esta configuração               | 715            |
-| **Bloqueados**                                | **2131 (75%)** |
+| Passariam com esta configuração               | 739            |
+| **Bloqueados**                                | **2107 (74%)** |
 
 Mais bloqueados: `VarSet` 694, `ExtensionStatus` 618, `SuccessfulAuth` 121, `Newexten` 115,
 `AGIExecStart/End` 202, `ChallengeSent` 95, `RTCPReceived/Sent` 129, `PeerStatus` 56, `DTMF*` 72.

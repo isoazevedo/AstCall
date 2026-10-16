@@ -28,7 +28,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 9   | **Autenticação standalone (item 6)** | JWT RS256 (`jose`), usuários em SQLite (`node:sqlite`) com bcrypt, `/auth/login`, `/auth/refresh` (cookie HttpOnly com rotação) e `/auth/logout`, limite de tentativas, `TokenVerifier` multi-emissor, CLI `npm run user` e `npm run keys:generate`.                                                    | 🔄 Homologação |
 | 10  | **Hub WebSocket (item 5)**           | `/monitor-ws` com `ws`: autenticação na 1ª mensagem, renovação e expiração do token, assinatura por servidor com permissão `view`, snapshot + deltas em lotes de 50 ms numerados (`epoch`/`seq`), `resync`, ping e proteção contra cliente lento. Testado ponta a ponta com o laboratório.              | 🔄 Homologação |
 | 11  | **Primeiro painel (item 7)**         | Web Component `<ast-monitor>` (Vue 3 + Pinia, Shadow DOM) com tema Frest do AzCall herdado via `--bs-*`, ramais com filtros, chamadas com participantes e duração ao vivo; SPA standalone com login; build em modo biblioteca (`dist/element/ast-monitor.js`, ~43 kB gzip). Validado com o laboratório. | 🔄 Homologação |
-| 12  | **Documentação do AMI (item 8)**     | `docs/manager.conf.md`: usuário `astcall` com `read=system,call,agent`, `write` sem `command`, restrição por IP, `eventfilter` por prefixo (corta 75% dos eventos na gravação do laboratório), riscos e roteiro de validação.                                                                           | 🔄 Homologação |
+| 12  | **Documentação do AMI (item 8)**     | `docs/manager.conf.md`: usuário `astcall` com `read=system,call,agent`, `write` sem `command`, restrição por IP, `eventfilter` (corta 74% dos eventos na gravação do laboratório), riscos e roteiro de validação. Validado no laboratório com o usuário `astcall`.                                      | ✅ Produção    |
 
 ---
 
@@ -226,7 +226,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 8. Documentação do `manager.conf` (usuário mínimo e `eventfilter`) — 🔄
+#### 8. Documentação do `manager.conf` (usuário mínimo e `eventfilter`) — ✅
 
 **O que é:** Documento com a configuração recomendada do usuário AMI: permissões mínimas, restrição por IP e filtros de eventos.
 
@@ -559,3 +559,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-16 | Claude Code | Item 5 implementado (hub WebSocket) e testado ponta a ponta com o laboratório; backend pronto para o primeiro painel (item 7)                                                                       |
 | 2026-10-16 | Claude Code | Item 7 implementado (painel Vue com tema Frest) e validado no navegador com o laboratório; item 16 recebe os requisitos de multi-empresa do AzCall                                                  |
 | 2026-10-16 | Claude Code | Item 8 documentado (aguarda validação no laboratório); novo item 23 (AMI sobre TLS)                                                                                                                 |
+| 2026-10-16 | Claude Code | Item 8 validado no laboratório (usuário `astcall`: listas OK, `Command` recusado, eventos de chamada passam pelo filtro)                                                                            |
