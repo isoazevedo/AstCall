@@ -1,12 +1,14 @@
 import { PROTOCOL_VERSION } from '@astcall/shared';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { ConfigError, loadConfig, type AppConfig } from './config/index.js';
+import { applyEvent } from './handlers/index.js';
 import { createLogger } from './logger.js';
+import { ServerStore } from './state/ServerStore.js';
 
 /**
  * Ponto de entrada do backend de tempo real.
- * Por enquanto: carrega a configuração e mantém uma conexão AMI por servidor.
- * O store, a sincronização e o WebSocket entram nos próximos itens do roadmap.
+ * Por enquanto: mantém uma conexão AMI e um store de estado por servidor.
+ * A sincronização inicial e o WebSocket entram nos próximos itens do roadmap.
  */
 function main(): void {
   let config: AppConfig;
@@ -30,11 +32,25 @@ function main(): void {
     'AstCall realtime iniciado',
   );
 
-  // Uma conexão AMI por servidor Asterisk
+  // Uma conexão AMI + um store de estado por servidor Asterisk
   const recorders: AmiRecorder[] = [];
+  const stores = new Map<string, ServerStore>();
   const connections = config.servers.map((server) => {
-    const conn = new AmiConnection(server, log);
-    conn.on('event', (ev) => log.debug({ server: server.id, event: ev.event }, 'Evento AMI'));
+    const store = new ServerStore();
+    stores.set(server.id, store);
+
+    const conn = new AmiConnection(server, log, {
+      // Sem a sincronização completa (item 4), o estado antigo pode estar errado após
+      // uma reconexão: zera e deixa os eventos ao vivo reconstruírem.
+      onConnected: async () => store.clear(),
+    });
+    conn.on('event', (ev) => applyEvent(store, ev));
+    store.on('deltas', (ops) =>
+      log.debug(
+        { server: server.id, deltas: ops.map((d) => `${d.op} ${d.entity} ${d.id}`) },
+        'Estado alterado',
+      ),
+    );
     if (config.amiRecordDir) {
       const recorder = new AmiRecorder(config.amiRecordDir, conn);
       recorders.push(recorder);

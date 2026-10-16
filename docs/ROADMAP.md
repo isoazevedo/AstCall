@@ -15,14 +15,15 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 
 ## Já implementado
 
-| #   | Funcionalidade            | Descrição resumida                                                                                                                                              | Status         |
-| --- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 1   | **Diretrizes do projeto** | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                    | ✅ Produção    |
-| 2   | **Análise do MonAst**     | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                   | ✅ Produção    |
-| 3   | **Decisões de stack**     | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                         | ✅ Produção    |
-| 4   | **Roadmap**               | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                              | ✅ Produção    |
-| 5   | **Monorepo (item 1)**     | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                       | ✅ Produção    |
-| 6   | **Cliente AMI (item 2)**  | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff e Ping. Testado com servidor AMI falso. | 🔄 Homologação |
+| #   | Funcionalidade                 | Descrição resumida                                                                                                                                                                                                 | Status         |
+| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| 1   | **Diretrizes do projeto**      | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                                                                       | ✅ Produção    |
+| 2   | **Análise do MonAst**          | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                                                                      | ✅ Produção    |
+| 3   | **Decisões de stack**          | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                                                                            | ✅ Produção    |
+| 4   | **Roadmap**                    | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                                                                                 | ✅ Produção    |
+| 5   | **Monorepo (item 1)**          | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                                                                          | ✅ Produção    |
+| 6   | **Cliente AMI (item 2)**       | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff, Ping e gravador de tráfego (`AMI_RECORD_DIR`). Validado no laboratório (Asterisk 20.9.2). | ✅ Produção    |
+| 7   | **Estado em memória (item 3)** | `ServerStore` com endpoints, canais, bridges e chamadas por `Linkedid`, links atravessando canais Local, deltas sem repetição. Testado com 6 cenários gravados no laboratório.                                     | 🔄 Homologação |
 
 ---
 
@@ -63,7 +64,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 2. Cliente AMI com reconexão automática — 🔄
+#### 2. Cliente AMI com reconexão automática — ✅
 
 **O que é:** Cliente AMI próprio e enxuto: conexão TCP, parser do protocolo, correlação de respostas por `ActionID`, coleta de listas (`EventList: start/Complete`) e reconexão com backoff.
 
@@ -88,7 +89,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 3. Store de estado e handlers de eventos (ramais, canais, bridges, chamadas)
+#### 3. Store de estado e handlers de eventos (ramais, canais, bridges, chamadas) — 🔄
 
 **O que é:** Estado em memória por servidor e handlers que transformam eventos AMI em mutações, gerando deltas.
 
@@ -127,7 +128,8 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 1. Entrar em `syncing` e guardar eventos recebidos em buffer.
 2. Limpar o store e executar: `PJSIPShowEndpoints`, `PJSIPShowContacts`, `DeviceStateList`, `CoreShowChannels`, `BridgeList`, `QueueStatus`, `QueueSummary`, `ConfbridgeListRooms` + `ConfbridgeList`, `ParkedCalls`.
 3. Aplicar o buffer (handlers idempotentes), incrementar o `epoch` e publicar snapshot.
-4. Disparar ressincronização também em `FullyBooted` e `Reload`.
+4. Disparar ressincronização também em `FullyBooted` e em `Reload` **dos módulos relevantes** (PJSIP, filas, ConfBridge). O AzCall recarrega a cada alteração de configuração (visto no laboratório); ressincronizar em todo `Reload` seria custoso.
+5. Tratar como lista vazia as actions que respondem `Response: Error` sem itens (ex.: `ConfbridgeListRooms` → "No active conferences.").
 
 **Arquivos envolvidos:**
 
@@ -531,3 +533,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-16 | Claude Code | Decisões de stack fechadas; produto com modos standalone e integrado (AzCall); Web Component; autenticação `AUTH_MODE`; `apps/admin` removido (parte PHP é o AzCall); novos itens 6, 7, 16, 17 e 18 |
 | 2026-10-16 | Claude Code | Item 1 implementado e em homologação                                                                                                                                                                |
 | 2026-10-16 | Claude Code | Item 1 concluído; item 2 (cliente AMI) implementado e em homologação                                                                                                                                |
+| 2026-10-16 | Claude Code | Item 2 validado no laboratório; item 3 implementado com fixtures reais (chamada, não atendida, transferências cega e assistida, fila, registro); refinado o item 4 (Reload seletivo)                |
