@@ -1,0 +1,147 @@
+<script setup lang="ts">
+/**
+ * Lista de chamadas em andamento.
+ *
+ * Conceitos: `v-for` repete um trecho para cada item; o `:key` identifica cada linha para
+ * o Vue atualizar só o que mudou (sem recriar a lista inteira a cada delta).
+ */
+import { ArrowLeftRight, CircleDot, PhoneCall } from 'lucide-vue-next';
+import { useNow } from '../composables/useNow';
+import { formatDuration, type CallView } from '../lib/view';
+
+defineProps<{ calls: CallView[]; loading: boolean }>();
+
+const now = useNow();
+
+/** Duração: desde o atendimento (em conversa) ou desde o início (tocando/discando). */
+function duration(call: CallView): string {
+  const from = call.answeredAt ?? call.startedAt;
+  return formatDuration((now.value - from) / 1000);
+}
+</script>
+
+<template>
+  <div class="ast-card">
+    <div class="ast-card-header">
+      <h5 class="ast-card-title">
+        <PhoneCall :size="18" aria-hidden="true" /> Chamadas em andamento
+      </h5>
+    </div>
+    <div class="ast-card-body">
+      <div v-if="loading" class="ast-empty">Carregando…</div>
+      <div v-else-if="calls.length === 0" class="ast-empty">Nenhuma chamada no momento.</div>
+      <table v-else class="calls">
+        <thead>
+          <tr>
+            <th>Participantes</th>
+            <th>Situação</th>
+            <th class="num">Duração</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="call in calls" :key="call.id">
+            <td>
+              <div class="parties">
+                <template v-for="(p, i) in call.parties" :key="p.uniqueid">
+                  <ArrowLeftRight v-if="i > 0" :size="14" class="link" aria-label="ligado a" />
+                  <span class="party">
+                    <strong>{{ p.num }}</strong>
+                    <small v-if="p.name">{{ p.name }}</small>
+                  </span>
+                </template>
+              </div>
+              <div v-for="(group, gi) in call.extraGroups" :key="gi" class="parties extra">
+                <template v-for="(p, i) in group" :key="p.uniqueid">
+                  <ArrowLeftRight v-if="i > 0" :size="12" class="link" aria-label="ligado a" />
+                  <span>{{ p.num }}</span>
+                </template>
+              </div>
+            </td>
+            <td>
+              <span
+                class="ast-badge"
+                :class="[`tone-${call.tone}`, { 'ast-pulse': call.status === 'ringing' }]"
+              >
+                {{ call.label }}
+              </span>
+              <span v-if="call.recording" class="rec" title="Chamada sendo gravada">
+                <CircleDot :size="14" aria-hidden="true" /> REC
+              </span>
+            </td>
+            <td class="num">{{ duration(call) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<style>
+.calls {
+  width: 100%;
+  border-collapse: collapse;
+}
+.calls th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ast-heading);
+  border-bottom: 1px solid var(--ast-border);
+}
+.calls td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--ast-border);
+  vertical-align: middle;
+}
+.calls tbody tr:last-child td {
+  border-bottom: 0;
+}
+.calls tbody tr:hover {
+  background: rgba(var(--ast-primary-rgb), 0.04);
+}
+.calls .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.parties {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.parties.extra {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--ast-text-muted);
+}
+.party {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.party strong {
+  color: var(--ast-heading);
+  font-weight: 500;
+}
+.party small {
+  color: var(--ast-text-muted);
+  font-size: 0.75rem;
+}
+.link {
+  color: var(--ast-text-muted);
+  flex-shrink: 0;
+}
+.rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ast-danger);
+}
+</style>

@@ -6,17 +6,21 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit && vite build && vite build --mode element",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@astcall/shared": "*",
+    "lucide-vue-next": "^1.0.0",
+    "pinia": "^4.1.0",
     "vue": "^3.5.44"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.10",
     "vite": "^8.3.4",
+    "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13"
   }
 }
