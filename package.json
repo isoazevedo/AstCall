@@ -18,7 +18,9 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "keys:generate": "npm run keys:generate -w @astcall/realtime --",
+    "user": "npm run user -w @astcall/realtime --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

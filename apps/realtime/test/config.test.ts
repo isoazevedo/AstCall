@@ -30,7 +30,8 @@ describe('amiEnvName', () => {
 describe('buildConfig', () => {
   it('monta a configuração com padrões e ignora servidores desabilitados', () => {
     const cfg = buildConfig(baseEnv, fakeFs({ '/raiz/config/servers.json': servers }), ROOT);
-    expect(cfg.http).toEqual({ host: '127.0.0.1', port: 8090 });
+    expect(cfg.http).toEqual({ host: '127.0.0.1', port: 8090, trustProxy: false });
+    expect(cfg.auth.local.cookieSecure).toBe(false); // desenvolvimento
     expect(cfg.auth.mode).toBe('local');
     expect(cfg.servers).toHaveLength(1);
     expect(cfg.servers[0]).toMatchObject({ id: 'pbx1', port: 5038, username: 'astcall' });

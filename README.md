@@ -21,6 +21,8 @@ Requisitos: Node.js 22 ou superior.
 npm install
 cp .env.example .env                          # ajuste credenciais AMI
 cp config/servers.example.json config/servers.json
+npm run keys:generate                         # chaves RS256 do modo standalone
+npm run user -- add admin --name "Administrador" --perms all
 npm run dev:realtime                          # backend (porta 8090)
 npm run dev:web                               # frontend (http://localhost:5173)
 ```
@@ -34,3 +36,23 @@ npm run dev:web                               # frontend (http://localhost:5173)
 | `npm run lint`      | ESLint em todo o monorepo              |
 | `npm run format`    | Formata o código com Prettier          |
 | `npm run build`     | Gera `dist/` de shared, realtime e web |
+
+## Usuários do modo standalone
+
+```bash
+npm run user -- add ana --name "Ana" --perms view,hangup --server pbx1
+npm run user -- list
+npm run user -- passwd ana
+npm run user -- perms ana --perms view,spy          # sem --server = todos os servidores
+npm run user -- disable ana | enable ana | remove ana
+```
+
+Permissões: `view`, `originate`, `hangup`, `transfer`, `spy`, `record`, `queue`, `conference` (ou `all`).
+
+## Autenticação (modo standalone)
+
+| Rota                 | O que faz                                                       |
+| -------------------- | --------------------------------------------------------------- |
+| `POST /auth/login`   | `{ username, password }` → token (10 min) + cookie de renovação |
+| `POST /auth/refresh` | cookie → token novo (troca o cookie); é o `token-url` do painel |
+| `POST /auth/logout`  | encerra a sessão                                                |

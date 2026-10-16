@@ -6,14 +6,18 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsx watch --conditions=development src/main.ts",
-    "start": "node dist/main.js",
+    "dev": "tsx watch --disable-warning=ExperimentalWarning --conditions=development src/main.ts",
+    "start": "node --disable-warning=ExperimentalWarning dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "keys:generate": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/keys-generate.ts",
+    "user": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/users.ts"
   },
   "dependencies": {
     "@astcall/shared": "*",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.12",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },

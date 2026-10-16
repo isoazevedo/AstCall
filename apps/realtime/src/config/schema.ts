@@ -12,6 +12,8 @@ export const envSchema = z.object({
 
   HTTP_HOST: z.string().min(1).default('127.0.0.1'),
   HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(8090),
+  // Atrás de Nginx/Apache: usar X-Forwarded-For como IP do cliente (limite de tentativas)
+  TRUST_PROXY: z.stringbool().default(false),
 
   SERVERS_FILE: z.string().min(1).default('config/servers.json'),
 
@@ -26,6 +28,10 @@ export const envSchema = z.object({
   LOCAL_JWT_PRIVATE_KEY_FILE: z.string().min(1).default('keys/local-private.pem'),
   LOCAL_JWT_PUBLIC_KEY_FILE: z.string().min(1).default('keys/local-public.pem'),
   USERS_DB_FILE: z.string().min(1).default('data/users.sqlite'),
+  // Validade da sessão (cookie de renovação), renovada a cada uso
+  REFRESH_TTL_HOURS: z.coerce.number().min(1).max(720).default(12),
+  // Cookie só via HTTPS. Padrão: ligado em produção, desligado em desenvolvimento.
+  COOKIE_SECURE: z.stringbool().optional(),
 
   // Emissor externo (modo integrado com o AzCall)
   EXTERNAL_JWT_ISSUER: z.string().min(1).default('azcall'),

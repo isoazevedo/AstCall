@@ -17,8 +17,37 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/** Permissões por servidor, ex.: { "pbx1": ["view", "hangup"] }. */
+/** Chave curinga em `perms`: as permissões valem para todos os servidores. */
+export const ALL_SERVERS = '*';
+
+/**
+ * Permissões por servidor, ex.: { "pbx1": ["view", "hangup"] }.
+ * A chave "*" vale para todos os servidores e soma-se às permissões específicas.
+ */
 export type ServerPermissions = Record<ServerId, Permission[]>;
+
+/** Verifica se `perms` concede `perm` no servidor `serverId` (considerando o curinga "*"). */
+export function hasPermission(
+  perms: ServerPermissions,
+  serverId: ServerId,
+  perm: Permission,
+): boolean {
+  return (
+    (perms[serverId]?.includes(perm) ?? false) || (perms[ALL_SERVERS]?.includes(perm) ?? false)
+  );
+}
+
+/**
+ * Resposta do endpoint de token (`token-url` do Web Component).
+ * No modo standalone é o `POST /auth/refresh` do backend; no modo integrado, um endpoint do
+ * AzCall. O componente chama com `credentials: 'same-origin'` (o cookie de sessão autentica).
+ */
+export interface TokenResponse {
+  /** JWT RS256 de curta duração. */
+  token: string;
+  /** Expiração do token (ms desde a época Unix), para renovar antes. */
+  expiresAt: number;
+}
 
 /**
  * Claims do JWT aceito pelo backend de tempo real.
@@ -37,4 +66,9 @@ export interface TokenClaims {
   iat: number;
   /** Permissões por servidor. */
   perms: ServerPermissions;
+}
+
+/** Resposta do `POST /auth/login` do modo standalone. */
+export interface LoginResponse extends TokenResponse {
+  user: { username: string; name: string; perms: ServerPermissions };
 }
