@@ -21,6 +21,8 @@ export interface AppConfig {
   logLevel: Env['LOG_LEVEL'];
   http: { host: string; port: number };
   servers: AmiServerConfig[];
+  /** Pasta de gravação do tráfego AMI (desligado quando indefinido). */
+  amiRecordDir: string | undefined;
   auth: {
     mode: Env['AUTH_MODE'];
     ttlSeconds: number;
@@ -116,6 +118,7 @@ export function buildConfig(
     logLevel: env.LOG_LEVEL,
     http: { host: env.HTTP_HOST, port: env.HTTP_PORT },
     servers,
+    amiRecordDir: env.AMI_RECORD_DIR ? resolvePath(rootDir, env.AMI_RECORD_DIR) : undefined,
     auth: {
       mode: env.AUTH_MODE,
       ttlSeconds: env.JWT_TTL_SECONDS,

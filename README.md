@@ -1,6 +1,6 @@
 # AstCall
 
-Painel de monitoramento em tempo real para **Asterisk 22** (AMI + WebSocket), inspirado no MonAst.
+Painel de monitoramento em tempo real para **Asterisk 20 e 22** (AMI + WebSocket), inspirado no MonAst.
 Funciona de forma **standalone** ou como **módulo do AzCall**. Veja `CLAUDE.md` e `docs/ROADMAP.md`.
 
 ## Estrutura

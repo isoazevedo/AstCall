@@ -15,6 +15,9 @@ export const envSchema = z.object({
 
   SERVERS_FILE: z.string().min(1).default('config/servers.json'),
 
+  // Se definido, grava todo o tráfego AMI recebido nesta pasta (para fixtures de teste)
+  AMI_RECORD_DIR: z.string().min(1).optional(),
+
   AUTH_MODE: z.enum(['local', 'external', 'both']).default('local'),
   JWT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
 

@@ -1,5 +1,5 @@
 import { PROTOCOL_VERSION } from '@astcall/shared';
-import { AmiConnection } from './ami/index.js';
+import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { ConfigError, loadConfig, type AppConfig } from './config/index.js';
 import { createLogger } from './logger.js';
 
@@ -31,9 +31,15 @@ function main(): void {
   );
 
   // Uma conexão AMI por servidor Asterisk
+  const recorders: AmiRecorder[] = [];
   const connections = config.servers.map((server) => {
     const conn = new AmiConnection(server, log);
     conn.on('event', (ev) => log.debug({ server: server.id, event: ev.event }, 'Evento AMI'));
+    if (config.amiRecordDir) {
+      const recorder = new AmiRecorder(config.amiRecordDir, conn);
+      recorders.push(recorder);
+      log.warn({ server: server.id, file: recorder.file }, 'Gravando tráfego AMI (dados reais)');
+    }
     conn.start();
     return conn;
   });
@@ -45,6 +51,7 @@ function main(): void {
     stopping = true;
     log.info({ signal }, 'Encerrando...');
     await Promise.allSettled(connections.map((c) => c.stop()));
+    await Promise.allSettled(recorders.map((r) => r.close()));
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));

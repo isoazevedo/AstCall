@@ -28,6 +28,8 @@ export interface AmiConnectionOptions extends AmiClientOptions {
 type ConnectionEvents = {
   status: [ServerConnectionStatus];
   event: [AmiMessage];
+  /** Toda mensagem recebida do Asterisk (usado pelo gravador). */
+  message: [AmiMessage];
 };
 
 /**
@@ -145,6 +147,7 @@ export class AmiConnection extends EventEmitter<ConnectionEvents> {
     this.client = client;
     const closed = new Promise<Error | undefined>((resolve) => client.once('close', resolve));
     client.on('event', (msg) => this.emit('event', msg));
+    client.on('message', (msg) => this.emit('message', msg));
 
     let reachedReady = false;
     try {
@@ -170,6 +173,7 @@ export class AmiConnection extends EventEmitter<ConnectionEvents> {
     } finally {
       this.stopPing();
       client.removeAllListeners('event');
+      client.removeAllListeners('message');
       this.setStatus('disconnected');
     }
     return reachedReady;

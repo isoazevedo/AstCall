@@ -21,6 +21,8 @@ export interface AmiClientOptions {
 }
 
 type ClientEvents = {
+  /** Toda mensagem recebida (respostas, itens de lista e eventos), antes do roteamento. */
+  message: [AmiMessage];
   /** Evento assíncrono do Asterisk (não pertencente a uma lista em andamento). */
   event: [AmiMessage];
   /** A conexão foi encerrada; `error` indica o motivo quando não foi um fechamento pedido. */
@@ -192,6 +194,7 @@ export class AmiClient extends EventEmitter<ClientEvents> {
 
   /** Encaminha cada mensagem recebida: resposta de action, item de lista ou evento assíncrono. */
   private dispatch(msg: AmiMessage): void {
+    this.emit('message', msg);
     const pending = msg.actionid ? this.pending.get(msg.actionid) : undefined;
 
     if (msg.response !== undefined) {

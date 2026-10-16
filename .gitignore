@@ -9,6 +9,9 @@ coverage/
 .env.*
 !.env.example
 config/servers.json
+
+# Gravações de tráfego AMI (dados reais; anonimizar antes de virar fixture)
+recordings/
 keys/
 *.pem
 

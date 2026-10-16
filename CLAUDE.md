@@ -6,7 +6,7 @@
 
 ## Sobre o projeto
 
-Painel de monitoramento em tempo real para **Asterisk 22**, inspirado no MonAst (Monitor for Asterisk). O objetivo é reimplementar a ideia do MonAst com stack moderna, e não traduzir o código original.
+Painel de monitoramento em tempo real para **Asterisk 20 LTS e 22 LTS**, inspirado no MonAst (Monitor for Asterisk). O objetivo é reimplementar a ideia do MonAst com stack moderna, e não traduzir o código original.
 
 O painel deve exibir e permitir interagir com:
 
@@ -90,7 +90,7 @@ reference/       # MonAst original — apenas referência, fora do git
 - Contém o código original do MonAst (Python + PHP) **apenas como referência**.
 - **Não copiar nem portar literalmente** código dessa pasta.
 - Use-a para entender: eventos do AMI escutados, modelo de estado, correlação de canais em chamadas, ações oferecidas e organização da interface.
-- **Ignorar** tudo que for obsoleto para o Asterisk 22:
+- **Ignorar** tudo que for obsoleto para o Asterisk 20/22:
   - `chan_sip` (removido) → usar **PJSIP**
   - MeetMe (removido) → usar **ConfBridge**
   - `Monitor` (removido no Asterisk 21) → usar **MixMonitor**
@@ -99,7 +99,9 @@ reference/       # MonAst original — apenas referência, fora do git
 - Bridges no Asterisk 12+ têm N canais: modelar por `BridgeUniqueid`, não por pares de canais como o MonAst.
 - Essa pasta está no `.gitignore` e não faz parte do projeto.
 
-## Diretrizes técnicas do Asterisk 22
+## Diretrizes técnicas do Asterisk (20 LTS e 22 LTS)
+
+- Versões suportadas: **Asterisk 20 LTS e 22 LTS**. Usar apenas actions e eventos presentes nas duas; quando houver diferença, tratar explicitamente e documentar. O laboratório de testes roda Asterisk 20.
 
 - **AMI** é a base do monitoramento (visão completa do PBX). ARI pode ser usado futuramente para controle avançado de chamadas, mas não substitui o AMI para monitoramento.
 - **Sincronização inicial** ao conectar no AMI (com buffer dos eventos recebidos durante o processo):
@@ -110,7 +112,8 @@ reference/       # MonAst original — apenas referência, fora do git
   - `ParkedCalls`
 - **Eventos principais:** `Newchannel`, `Newstate`, `Hangup`, `NewCallerid`, `NewConnectedLine`, `BridgeCreate`, `BridgeEnter`, `BridgeLeave`, `BridgeDestroy`, `DialBegin`, `DialEnd`, `DeviceStateChange`, `ContactStatus`, `QueueMemberStatus`, `QueueCallerJoin`, `QueueCallerLeave`, `AgentConnect`, `AgentComplete`, `ConfbridgeJoin`, `ConfbridgeLeave`, `ParkedCall`, `UnParkedCall`, `MixMonitorStart`, `MixMonitorStop`, `FullyBooted`, `Reload`.
 - Correlacionar canais em chamadas usando `Linkedid` e `Uniqueid` (atenção a transferências e filas).
-- Consultar sempre a documentação oficial do AMI do Asterisk 22 para actions e events; o MonAst serve só como mapa.
+- Consultar sempre a documentação oficial do AMI (20 e 22) para actions e events; o MonAst serve só como mapa.
+- Actions de lista podem responder `Response: Error` quando vazias (ex.: `ConfbridgeListRooms` → "No active conferences."); a sincronização deve tratar como lista vazia.
 
 ## Requisitos importantes
 
