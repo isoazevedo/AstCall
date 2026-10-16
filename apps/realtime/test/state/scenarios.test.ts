@@ -17,6 +17,7 @@ const FIXTURES = [
   '09-fila-dois-membros.jsonl',
   '10-fila-pausa.jsonl',
   '11-acoes-painel.jsonl',
+  '12-escuta.jsonl',
 ];
 
 describe('invariantes de todas as gravações de chamada', () => {
@@ -290,5 +291,27 @@ describe('cenário 11: ações feitas pelo painel (ligar → transferir → desl
     const { snapshot } = replay(events, { until: nth(2, at('BridgeEnter', 'PJSIP/9002')) });
     expect(snapshot.calls).toHaveLength(1);
     expect(linksByName(snapshot, snapshot.calls[0]!.id)).toEqual([['PJSIP/9002', 'PJSIP/9005']]);
+  });
+});
+
+describe('cenário 12: escuta (9005 ouvindo a chamada 9001 ⇄ 9002)', () => {
+  const events = loadFixture('12-escuta.jsonl');
+
+  it('marca a chamada como monitorada e o canal do supervisor como escutando o 9002', () => {
+    const { snapshot } = replay(events, { until: at('ChanSpyStart') });
+    const spyer = snapshot.channels.find((c) => c.name.startsWith('PJSIP/9005'))!;
+    const target = snapshot.channels.find((c) => c.name.startsWith('PJSIP/9002'))!;
+    expect(spyer.spying).toBe(target.uniqueid);
+    expect(target.spiedBy).toBe(spyer.uniqueid);
+    const monitored = snapshot.calls.find((c) => c.channelIds.includes(target.uniqueid))!;
+    expect(monitored).toMatchObject({ monitored: true, status: 'talking' });
+    // o supervisor é uma chamada separada (outro Linkedid), não um participante da conversa
+    expect(monitored.channelIds).not.toContain(spyer.uniqueid);
+  });
+
+  it('quando a chamada termina, a escuta termina junto (opção E do ChanSpy)', () => {
+    const { snapshot } = replay(events);
+    expect(snapshot.channels).toEqual([]);
+    expect(snapshot.calls).toEqual([]);
   });
 });

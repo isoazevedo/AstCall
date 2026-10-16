@@ -135,7 +135,9 @@ export function callView(call: Call, channels: Record<string, Channel>): CallVie
   // Canal de supervisor em escuta: mostra "quem escuta" e "quem é escutado"
   const spyer = call.channelIds.map((id) => channels[id]).find((c) => c?.spying);
   const target = spyer?.spying ? channels[spyer.spying] : undefined;
-  if (spyer) parties = [party(spyer)];
+  // O CallerID do canal do supervisor é "Escuta <alvo>" (para o telefone dele): na tela,
+  // identifique-o pelo próprio ramal.
+  if (spyer) parties = [{ ...party(spyer), num: spyer.endpointId ?? party(spyer).num, name: '' }];
 
   const s = spyer
     ? { label: 'Escutando', tone: 'info' as Tone }

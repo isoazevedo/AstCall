@@ -153,7 +153,12 @@ describe('view', () => {
   it('canal de supervisor aparece como "escutando" o alvo', () => {
     const channels = {
       alvo: channel('alvo', '9002', { spiedBy: 'sup' }),
-      sup: channel('sup', '9005', { spying: 'alvo', linkedid: '2.2' }),
+      // CallerID do canal do supervisor vem como "Escuta 9002" <9002> (definido no Originate)
+      sup: channel('sup', '9005', {
+        spying: 'alvo',
+        linkedid: '2.2',
+        callerId: { num: '9002', name: 'Escuta 9002' },
+      }),
     };
     const v = callView(call({ id: '2.2', status: 'other', channelIds: ['sup'] }), channels);
     expect(v.label).toBe('Escutando');
