@@ -99,8 +99,4 @@ export interface ErrorMessage {
 }
 
 export type ServerMessage =
-  | AuthOkMessage
-  | ServerStatusMessage
-  | SnapshotMessage
-  | DeltaMessage
-  | ErrorMessage;
+  AuthOkMessage | ServerStatusMessage | SnapshotMessage | DeltaMessage | ErrorMessage;

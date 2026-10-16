@@ -4,3 +4,4 @@ coverage/
 reference/
 package-lock.json
 docs/ROADMAP_MODELO.md
+.claude/
