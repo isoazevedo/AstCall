@@ -15,13 +15,14 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 
 ## Já implementado
 
-| #   | Funcionalidade            | Descrição resumida                                                                                                            | Status         |
-| --- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 1   | **Diretrizes do projeto** | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                  | ✅ Produção    |
-| 2   | **Análise do MonAst**     | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22. | ✅ Produção    |
-| 3   | **Decisões de stack**     | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                       | ✅ Produção    |
-| 4   | **Roadmap**               | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                            | ✅ Produção    |
-| 5   | **Monorepo (item 1)**     | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.     | 🔄 Homologação |
+| #   | Funcionalidade            | Descrição resumida                                                                                                                                              | Status         |
+| --- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 1   | **Diretrizes do projeto** | `CLAUDE.md` com stack, requisitos, diretrizes do Asterisk 22 e os dois modos de implantação.                                                                    | ✅ Produção    |
+| 2   | **Análise do MonAst**     | Leitura de `reference/monast/` (eventos, modelo de estado, ações, permissões) e plano de arquitetura adaptado ao Asterisk 22.                                   | ✅ Produção    |
+| 3   | **Decisões de stack**     | TypeScript, Vue 3 + Vite + Pinia, Web Component, JWT RS256 com `AUTH_MODE` (`local`/`external`/`both`).                                                         | ✅ Produção    |
+| 4   | **Roadmap**               | Este documento, seguindo `docs/ROADMAP_MODELO.md`.                                                                                                              | ✅ Produção    |
+| 5   | **Monorepo (item 1)**     | npm workspaces, TypeScript, ESLint/Prettier, Vitest, configuração validada com zod, `@astcall/shared` e casca da SPA Vue.                                       | ✅ Produção    |
+| 6   | **Cliente AMI (item 2)**  | Parser incremental, correlação por `ActionID`, listas (`EventList`), timeouts, bloqueio de CR/LF, reconexão com backoff e Ping. Testado com servidor AMI falso. | 🔄 Homologação |
 
 ---
 
@@ -35,7 +36,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 1. Estrutura do monorepo, configuração e tipos compartilhados — 🔄
+#### 1. Estrutura do monorepo, configuração e tipos compartilhados — ✅
 
 **O que é:** Criar a estrutura base do projeto (npm workspaces), ferramentas de build, lint e testes, carregamento de configuração por variáveis de ambiente e o pacote de tipos compartilhados.
 
@@ -62,7 +63,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 2. Cliente AMI com reconexão automática
+#### 2. Cliente AMI com reconexão automática — 🔄
 
 **O que é:** Cliente AMI próprio e enxuto: conexão TCP, parser do protocolo, correlação de respostas por `ActionID`, coleta de listas (`EventList: start/Complete`) e reconexão com backoff.
 
@@ -529,3 +530,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-16 | Claude Code | Criação do documento a partir da análise do MonAst e do `CLAUDE.md`                                                                                                                                 |
 | 2026-10-16 | Claude Code | Decisões de stack fechadas; produto com modos standalone e integrado (AzCall); Web Component; autenticação `AUTH_MODE`; `apps/admin` removido (parte PHP é o AzCall); novos itens 6, 7, 16, 17 e 18 |
 | 2026-10-16 | Claude Code | Item 1 implementado e em homologação                                                                                                                                                                |
+| 2026-10-16 | Claude Code | Item 1 concluído; item 2 (cliente AMI) implementado e em homologação                                                                                                                                |
