@@ -212,4 +212,5 @@ export type ActionDialog =
   | { kind: 'hangup'; uniqueid: string; label: string }
   | { kind: 'transfer'; uniqueid: string; label: string }
   | { kind: 'originate'; from: string }
+  | { kind: 'spy'; uniqueid: string; label: string }
   | { kind: 'pause'; queue: string; interface: string; label: string; pause: boolean };

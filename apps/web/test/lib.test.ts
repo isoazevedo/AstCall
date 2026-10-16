@@ -106,6 +106,8 @@ function channel(uniqueid: string, num: string, extra: Partial<Channel> = {}): C
     dialStatus: null,
     onHold: false,
     recording: false,
+    spying: null,
+    spiedBy: null,
     queue: null,
     inQueue: false,
     createdAt: 0,
@@ -122,6 +124,7 @@ const call = (extra: Partial<Call>): Call => ({
   links: [],
   recording: false,
   queue: null,
+  monitored: false,
   startedAt: 0,
   answeredAt: null,
   ...extra,
@@ -145,6 +148,20 @@ describe('view', () => {
     const v = callView(call({ status: 'ringing', channelIds: ['a', 'b'] }), channels);
     expect(v.parties.map((p) => p.num)).toEqual(['9002', '9001']);
     expect(v.tone).toBe('warning');
+  });
+
+  it('canal de supervisor aparece como "escutando" o alvo', () => {
+    const channels = {
+      alvo: channel('alvo', '9002', { spiedBy: 'sup' }),
+      sup: channel('sup', '9005', { spying: 'alvo', linkedid: '2.2' }),
+    };
+    const v = callView(call({ id: '2.2', status: 'other', channelIds: ['sup'] }), channels);
+    expect(v.label).toBe('Escutando');
+    expect(v.parties.map((p) => p.num)).toEqual(['9005']);
+    expect(v.spyTarget?.num).toBe('9002');
+    const monitored = callView(call({ channelIds: ['alvo'], monitored: true }), channels);
+    expect(monitored.monitored).toBe(true);
+    expect(monitored.spyTarget).toBeNull();
   });
 
   it('formatDuration, ordenação e endereço do contato', () => {

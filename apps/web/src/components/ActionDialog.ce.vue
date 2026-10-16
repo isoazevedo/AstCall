@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * Diálogo único para as ações (desligar, transferir, ligar, pausar/retomar).
+ * Diálogo único para as ações (desligar, transferir, ligar, pausar/retomar, escutar).
  * Abre quando o store recebe `openDialog(...)` e fecha com `closeDialog()`.
  *
  * Conceitos: `watch` reinicia os campos sempre que um diálogo novo abre; `computed`
  * decide título e texto do botão conforme o tipo; `@keydown.esc` fecha pelo teclado.
  */
 import { computed, nextTick, ref, watch } from 'vue';
-import { DIAL_TARGET } from '@astcall/shared';
+import { DIAL_TARGET, type SpyMode } from '@astcall/shared';
 import { useMonitorStore } from '../stores/monitor';
 
 const store = useMonitorStore();
@@ -15,6 +15,30 @@ const store = useMonitorStore();
 const number = ref('');
 const reason = ref('');
 const allQueues = ref(false);
+const spyMode = ref<SpyMode>('listen');
+
+/** Último ramal usado para escutar, lembrado neste navegador (só uma sugestão editável). */
+const LISTENER_KEY = 'astcall.spyListener';
+function lastListener(): string {
+  try {
+    return localStorage.getItem(LISTENER_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+function rememberListener(v: string): void {
+  try {
+    localStorage.setItem(LISTENER_KEY, v);
+  } catch {
+    // navegador sem armazenamento: só não lembra
+  }
+}
+
+const spyModes: { value: SpyMode; label: string; hint: string }[] = [
+  { value: 'listen', label: 'Ouvir', hint: 'escuta em silêncio' },
+  { value: 'whisper', label: 'Sussurrar', hint: 'fala só com o ramal monitorado' },
+  { value: 'barge', label: 'Intervir', hint: 'fala com os dois lados' },
+];
 const busy = ref(false);
 const error = ref('');
 const firstInput = ref<HTMLInputElement | null>(null);
@@ -22,14 +46,16 @@ const firstInput = ref<HTMLInputElement | null>(null);
 watch(
   () => store.dialog,
   async (d) => {
-    number.value = '';
+    number.value = d?.kind === 'spy' ? lastListener() : '';
     reason.value = '';
     allQueues.value = false;
+    spyMode.value = 'listen';
     error.value = '';
     busy.value = false;
     if (d) {
       await nextTick();
       firstInput.value?.focus();
+      firstInput.value?.select();
     }
   },
 );
@@ -54,6 +80,13 @@ const view = computed(() => {
         danger: false,
         text: `O ramal ${d.from} vai tocar; ao atender, a ligação segue para:`,
       };
+    case 'spy':
+      return {
+        title: 'Escutar',
+        confirm: 'Escutar',
+        danger: false,
+        text: `Escutar ${d.label}. Informe o ramal que vai tocar para quem vai ouvir (pode ser outro ramal, como o de um diretor):`,
+      };
     case 'pause':
       return d.pause
         ? {
@@ -73,7 +106,10 @@ const view = computed(() => {
 });
 
 const needsNumber = computed(
-  () => store.dialog?.kind === 'transfer' || store.dialog?.kind === 'originate',
+  () =>
+    store.dialog?.kind === 'transfer' ||
+    store.dialog?.kind === 'originate' ||
+    store.dialog?.kind === 'spy',
 );
 const numberValid = computed(() => DIAL_TARGET.test(number.value.trim()));
 
@@ -106,6 +142,16 @@ async function submit(): Promise<void> {
         `Ramal ${d.from} tocando para ligar a ${to}`,
       );
       break;
+    case 'spy': {
+      const mode = spyModes.find((m) => m.value === spyMode.value)!;
+      result = await store.act(
+        'spy',
+        { uniqueid: d.uniqueid, listener: to, mode: spyMode.value },
+        `Ramal ${to} vai tocar para ${mode.label.toLowerCase()} ${d.label}`,
+      );
+      if (result.ok) rememberListener(to);
+      break;
+    }
     case 'pause': {
       const scope = allQueues.value ? 'em todas as filas' : `na fila ${d.queue}`;
       result = await store.act(
@@ -146,10 +192,24 @@ async function submit(): Promise<void> {
         v-model="number"
         class="ast-input"
         inputmode="tel"
-        placeholder="Número ou ramal (ex.: 9005)"
+        :placeholder="
+          store.dialog.kind === 'spy'
+            ? 'Ramal que vai ouvir (ex.: 9005)'
+            : 'Número ou ramal (ex.: 9005)'
+        "
         aria-label="Número de destino"
         :disabled="busy"
       />
+
+      <fieldset v-if="store.dialog.kind === 'spy'" class="modes">
+        <legend>Modo</legend>
+        <label v-for="m in spyModes" :key="m.value" class="mode">
+          <input v-model="spyMode" type="radio" name="spy-mode" :value="m.value" :disabled="busy" />
+          <span>
+            <strong>{{ m.label }}</strong> <small>{{ m.hint }}</small>
+          </span>
+        </label>
+      </fieldset>
 
       <template v-if="store.dialog.kind === 'pause'">
         <input
@@ -214,6 +274,35 @@ async function submit(): Promise<void> {
 }
 .dlg .ast-input {
   width: 100%;
+}
+.modes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.modes legend {
+  margin-bottom: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ast-heading);
+}
+.mode {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--ast-border);
+  border-radius: var(--ast-radius);
+  cursor: pointer;
+}
+.mode:has(input:checked) {
+  border-color: var(--ast-primary);
+  background: rgba(var(--ast-primary-rgb), 0.08);
+}
+.mode small {
+  color: var(--ast-text-muted);
 }
 .check {
   display: flex;

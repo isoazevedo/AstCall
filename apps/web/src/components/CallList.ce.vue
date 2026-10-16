@@ -5,7 +5,15 @@
  * Conceitos: `v-for` repete um trecho para cada item; o `:key` identifica cada linha para
  * o Vue atualizar só o que mudou (sem recriar a lista inteira a cada delta).
  */
-import { ArrowLeftRight, CircleDot, PhoneCall, PhoneForwarded, PhoneOff } from 'lucide-vue-next';
+import {
+  ArrowLeftRight,
+  CircleDot,
+  Ear,
+  Headphones,
+  PhoneCall,
+  PhoneForwarded,
+  PhoneOff,
+} from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
 import { formatDuration, type CallView, type Party } from '../lib/view';
 import { useMonitorStore } from '../stores/monitor';
@@ -53,6 +61,26 @@ function duration(call: CallView): string {
                     <small v-if="p.name">{{ p.name }}</small>
                     <span class="party-actions">
                       <button
+                        v-if="
+                          store.can('spy') &&
+                          !call.spyTarget &&
+                          (call.status === 'talking' || call.status === 'held')
+                        "
+                        type="button"
+                        class="icon-btn"
+                        :title="`Escutar ${p.num}`"
+                        :aria-label="`Escutar ${p.num}`"
+                        @click="
+                          store.openDialog({
+                            kind: 'spy',
+                            uniqueid: p.uniqueid,
+                            label: partyLabel(p),
+                          })
+                        "
+                      >
+                        <Headphones :size="14" />
+                      </button>
+                      <button
                         v-if="store.can('transfer') && call.status === 'talking'"
                         type="button"
                         class="icon-btn"
@@ -88,6 +116,10 @@ function duration(call: CallView): string {
                   </span>
                 </template>
               </div>
+              <div v-if="call.spyTarget" class="spy-target">
+                <Ear :size="14" aria-hidden="true" /> escutando
+                <strong>{{ call.spyTarget.num }}</strong>
+              </div>
               <div v-for="(group, gi) in call.extraGroups" :key="gi" class="parties extra">
                 <template v-for="(p, i) in group" :key="p.uniqueid">
                   <ArrowLeftRight v-if="i > 0" :size="12" class="link" aria-label="ligado a" />
@@ -101,6 +133,9 @@ function duration(call: CallView): string {
                 :class="[`tone-${call.tone}`, { 'ast-pulse': call.status === 'ringing' }]"
               >
                 {{ call.label }}
+              </span>
+              <span v-if="call.monitored" class="spied" title="Um supervisor está escutando">
+                <Headphones :size="13" aria-hidden="true" /> Em escuta
               </span>
               <span v-if="call.recording" class="rec" title="Chamada sendo gravada">
                 <CircleDot :size="14" aria-hidden="true" /> REC
@@ -201,6 +236,26 @@ function duration(call: CallView): string {
 .link {
   color: var(--ast-text-muted);
   flex-shrink: 0;
+}
+.spy-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--ast-info);
+}
+.spy-target strong {
+  color: var(--ast-heading);
+}
+.spied {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ast-info);
 }
 .via-queue {
   margin-top: 0.25rem;

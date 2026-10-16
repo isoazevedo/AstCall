@@ -435,6 +435,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
       links,
       recording: chans.some((c) => c.recording),
       queue: chans.find((c) => c.queue)?.queue ?? null,
+      monitored: chans.some((c) => c.spiedBy !== null),
       startedAt: Math.min(...chans.map((c) => c.createdAt)),
       answeredAt: answered.length > 0 ? Math.min(...answered) : null,
     });
@@ -502,6 +503,8 @@ function newChannel(uniqueid: string, name: string, linkedid: string, ts: number
     dialStatus: null,
     onHold: false,
     recording: false,
+    spying: null,
+    spiedBy: null,
     queue: null,
     inQueue: false,
     createdAt: ts,

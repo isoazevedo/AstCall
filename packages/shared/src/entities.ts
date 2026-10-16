@@ -67,6 +67,10 @@ export interface Channel {
   dialStatus: string | null;
   onHold: boolean;
   recording: boolean;
+  /** Este canal é de um supervisor escutando outro canal (Uniqueid do canal escutado). */
+  spying: string | null;
+  /** Este canal está sendo escutado (Uniqueid do canal de quem escuta). */
+  spiedBy: string | null;
   /** Fila por onde o canal entrou (continua preenchida depois do atendimento). */
   queue: string | null;
   /** Aguardando na fila agora (entre QueueCallerJoin e QueueCallerLeave). */
@@ -105,6 +109,8 @@ export interface Call {
   recording: boolean;
   /** Fila por onde a chamada passou (null se não passou por fila). */
   queue: string | null;
+  /** Algum participante está sendo escutado por um supervisor. */
+  monitored: boolean;
   startedAt: number;
   answeredAt: number | null;
 }

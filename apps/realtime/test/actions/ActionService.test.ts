@@ -274,3 +274,66 @@ describe('erros do AMI', () => {
     ).toBe('disconnected');
   });
 });
+
+describe('escuta (spy)', () => {
+  const SPY: ServerPermissions = { pbx1: ['view', 'spy'] };
+
+  beforeEach(() => {
+    // 9005 registrado e livre (o ramal do "diretor" que vai escutar)
+    applyEvent(store, { event: 'DeviceStateChange', device: 'PJSIP/9005', state: 'NOT_INUSE' });
+    applyEvent(store, {
+      event: 'ContactStatus',
+      endpointname: '9005',
+      aor: '9005',
+      uri: 'sip:9005@192.0.2.9:5060',
+      contactstatus: 'NonQualified',
+    });
+  });
+
+  it.each([
+    ['listen', 'qE'],
+    ['whisper', 'qEw'],
+    ['barge', 'qEB'],
+  ] as const)('modo %s → ChanSpy com opções %s no ramal informado', async (mode, options) => {
+    const target = uid('PJSIP/9002');
+    await service.execute(claims(SPY), 'pbx1', 'spy', { uniqueid: target, listener: '9005', mode });
+    const sent = conn.sent[0]!;
+    expect(sent.action).toBe('Originate');
+    expect(sent.fields).toMatchObject({
+      Channel: 'PJSIP/9005',
+      Application: 'ChanSpy',
+      Async: 'true',
+    });
+    expect(String(sent.fields.Data)).toMatch(new RegExp(`^PJSIP/9002-[0-9a-f]+,${options}$`));
+  });
+
+  it('exige permissão spy', async () => {
+    const r = await code(
+      service.execute(claims({ pbx1: ['view', 'hangup'] }), 'pbx1', 'spy', {
+        uniqueid: uid('PJSIP/9002'),
+        listener: '9005',
+        mode: 'listen',
+      }),
+    );
+    expect(r).toBe('forbidden');
+  });
+
+  it('recusa ramal inexistente, sem registro ou o próprio ramal da chamada', async () => {
+    const target = uid('PJSIP/9002');
+    const run = (listener: string) =>
+      code(
+        service.execute(claims(SPY), 'pbx1', 'spy', { uniqueid: target, listener, mode: 'listen' }),
+      );
+    expect(await run('7777')).toBe('not_found');
+    expect(await run('9001')).toBe('invalid'); // 9001 existe, mas sem contato registrado na fixture
+    applyEvent(store, {
+      event: 'ContactStatus',
+      endpointname: '9002',
+      aor: '9002',
+      uri: 'sip:9002@192.0.2.2:5060',
+      contactstatus: 'NonQualified',
+    });
+    expect(await run('9002')).toBe('invalid'); // escutar a si mesmo
+    expect(conn.sent).toHaveLength(0);
+  });
+});

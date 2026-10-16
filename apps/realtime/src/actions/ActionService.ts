@@ -55,6 +55,11 @@ const SCHEMAS = {
   hangup: z.object({ uniqueid: z.string().min(1).max(64) }),
   transfer: z.object({ uniqueid: z.string().min(1).max(64), to: dialTarget }),
   originate: z.object({ from: z.string().min(1).max(64), to: dialTarget }),
+  spy: z.object({
+    uniqueid: z.string().min(1).max(64),
+    listener: z.string().trim().min(1).max(64),
+    mode: z.enum(['listen', 'whisper', 'barge']),
+  }),
 } satisfies Record<ActionName, z.ZodType>;
 
 /** Tempo de cache do contexto de dialplan de cada endpoint. */
@@ -146,6 +151,8 @@ export class ActionService {
         return this.buildTransfer(target, parsed.data as z.infer<typeof SCHEMAS.transfer>);
       case 'originate':
         return this.buildOriginate(target, parsed.data as z.infer<typeof SCHEMAS.originate>);
+      case 'spy':
+        return this.buildSpy(target, parsed.data as z.infer<typeof SCHEMAS.spy>);
     }
   }
 
@@ -217,6 +224,40 @@ export class ActionService {
         // Identificador do próprio ramal: ele segue na discagem, então o destino vê quem liga
         // (usar o número de destino aqui faria o destino ver o próprio número).
         CallerID: `<${p.from}>`,
+        Timeout: 30_000,
+        Async: 'true',
+      },
+    };
+  }
+
+  /**
+   * Escuta: o ramal `listener` (qualquer ramal informado pelo supervisor — pode ser o de um
+   * diretor) toca e, ao atender, entra no ChanSpy do canal escolhido.
+   * Opções do ChanSpy: q = sem bipe/anúncio; E = sai quando o canal escutado desliga;
+   * w = sussurrar (fala só com o escutado); B = intervir (fala com os dois lados).
+   */
+  private buildSpy({ store }: ActionTarget, p: z.infer<typeof SCHEMAS.spy>): AmiCall {
+    const ch = store.channels.get(p.uniqueid);
+    if (!ch) throw new ActionError('not_found', 'a chamada já terminou');
+    const listener = store.endpoints.get(p.listener);
+    if (!listener) throw new ActionError('not_found', `ramal ${p.listener} não encontrado`);
+    if (listener.deviceState === 'UNAVAILABLE' || listener.contacts.length === 0) {
+      throw new ActionError('invalid', `o ramal ${p.listener} não está registrado`);
+    }
+    if (ch.endpointId === p.listener) {
+      throw new ActionError('invalid', 'o ramal que vai escutar é o próprio ramal da chamada');
+    }
+    const options = { listen: 'qE', whisper: 'qEw', barge: 'qEB' }[p.mode];
+    const who = ch.callerId.num || ch.endpointId || ch.name;
+    return {
+      action: 'Originate',
+      fields: {
+        Channel: `PJSIP/${p.listener}`,
+        Application: 'ChanSpy',
+        // Nome completo do canal: o ChanSpy usa como prefixo, então pega exatamente este canal
+        Data: `${ch.name},${options}`,
+        // O telefone de quem vai escutar mostra quem será escutado
+        CallerID: `"Escuta ${who}" <${who}>`,
         Timeout: 30_000,
         Async: 'true',
       },

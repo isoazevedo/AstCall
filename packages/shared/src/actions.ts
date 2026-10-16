@@ -14,7 +14,14 @@ export interface ActionParams {
   transfer: { uniqueid: string; to: string };
   /** Faz o ramal `from` tocar e, ao atender, discar para `to`. */
   originate: { from: string; to: string };
+  /**
+   * Escuta (ChanSpy): faz o ramal `listener` tocar e, ao atender, escuta o canal `uniqueid`.
+   * listen = só ouvir; whisper = falar só com o ramal monitorado; barge = falar com os dois.
+   */
+  spy: { uniqueid: string; listener: string; mode: SpyMode };
 }
+
+export type SpyMode = 'listen' | 'whisper' | 'barge';
 
 export type ActionName = keyof ActionParams;
 
@@ -24,6 +31,7 @@ export const ACTION_PERMISSION: Record<ActionName, Permission> = {
   hangup: 'hangup',
   transfer: 'transfer',
   originate: 'originate',
+  spy: 'spy',
 };
 
 /** Números de destino aceitos: dígitos e * # + (ex.: 9005, *600, +5511999999999). */

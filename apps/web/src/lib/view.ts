@@ -90,6 +90,10 @@ export interface CallView {
   recording: boolean;
   /** Fila por onde a chamada passou. */
   queue: string | null;
+  /** Algum participante está sendo escutado por um supervisor. */
+  monitored: boolean;
+  /** Esta "chamada" é um supervisor escutando: quem está sendo escutado. */
+  spyTarget: Party | null;
   startedAt: number;
   answeredAt: number | null;
 }
@@ -128,12 +132,21 @@ export function callView(call: Call, channels: Record<string, Channel>): CallVie
     parties = toParties(call.channelIds.filter((id) => !channels[id]?.isLocal));
   }
 
-  const s = CALL_STATUS[call.status] ?? CALL_STATUS.other;
+  // Canal de supervisor em escuta: mostra "quem escuta" e "quem é escutado"
+  const spyer = call.channelIds.map((id) => channels[id]).find((c) => c?.spying);
+  const target = spyer?.spying ? channels[spyer.spying] : undefined;
+  if (spyer) parties = [party(spyer)];
+
+  const s = spyer
+    ? { label: 'Escutando', tone: 'info' as Tone }
+    : (CALL_STATUS[call.status] ?? CALL_STATUS.other);
   return {
     id: call.id,
     status: call.status,
     label: s.label,
     tone: s.tone,
+    monitored: call.monitored ?? false,
+    spyTarget: target ? party(target) : null,
     parties,
     extraGroups,
     recording: call.recording,

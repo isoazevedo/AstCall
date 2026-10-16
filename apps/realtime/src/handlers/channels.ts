@@ -58,6 +58,17 @@ export const channelHandlers: Record<string, Handler> = {
     touchChannel(store, msg, ts, { recording: false });
   },
 
+  // ---- Escuta (ChanSpy): o evento traz o canal de quem escuta ("Spyer") e do escutado ("Spyee")
+  chanspystart: (store, msg, ts) => {
+    if (!msg.spyeruniqueid || !msg.spyeeuniqueid) return;
+    touchChannel(store, msg, ts, { spying: msg.spyeeuniqueid }, 'spyer');
+    touchChannel(store, msg, ts, { spiedBy: msg.spyeruniqueid }, 'spyee');
+  },
+  chanspystop: (store, msg, ts) => {
+    if (msg.spyeruniqueid) touchChannel(store, msg, ts, { spying: null }, 'spyer');
+    if (msg.spyeeuniqueid) touchChannel(store, msg, ts, { spiedBy: null }, 'spyee');
+  },
+
   // ---- Item de lista da sincronização (CoreShowChannels)
   coreshowchannel: (store, msg, ts) => {
     const snap = readChannel(msg);

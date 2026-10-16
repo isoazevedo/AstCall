@@ -232,3 +232,26 @@ describe('funções auxiliares', () => {
     expect(parseDuration('01:02:03')).toBe(3723);
   });
 });
+
+describe('escuta (ChanSpy)', () => {
+  it('marca quem escuta e quem é escutado; a chamada fica "monitorada"', () => {
+    const store = new ServerStore();
+    applyEvent(store, newchannel('1.1', 'PJSIP/9002-00000001'), T);
+    applyEvent(store, newchannel('2.1', 'PJSIP/9005-00000002'), T);
+    const spy = {
+      spyerchannel: 'PJSIP/9005-00000002',
+      spyeruniqueid: '2.1',
+      spyerlinkedid: '2.1',
+      spyeechannel: 'PJSIP/9002-00000001',
+      spyeeuniqueid: '1.1',
+      spyeelinkedid: '1.1',
+    };
+    applyEvent(store, { event: 'ChanSpyStart', ...spy }, T);
+    expect(store.channels.get('2.1')?.spying).toBe('1.1');
+    expect(store.channels.get('1.1')?.spiedBy).toBe('2.1');
+    expect(store.calls.get('1.1')?.monitored).toBe(true);
+    applyEvent(store, { event: 'ChanSpyStop', ...spy }, T);
+    expect(store.channels.get('1.1')?.spiedBy).toBeNull();
+    expect(store.calls.get('1.1')?.monitored).toBe(false);
+  });
+});
