@@ -1,0 +1,32 @@
+# Dependências e builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Configuração sensível (nunca versionar)
+.env
+.env.*
+!.env.example
+config/servers.json
+keys/
+*.pem
+
+# Dados locais (usuários do modo standalone)
+data/
+*.sqlite
+*.sqlite3
+
+# Referência do MonAst (apenas consulta, fora do projeto)
+reference/
+
+# IDE e sistema
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

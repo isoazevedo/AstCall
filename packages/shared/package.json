@@ -1,0 +1,18 @@
+{
+  "name": "@astcall/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos e contratos compartilhados entre backend e frontend do AstCall",
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

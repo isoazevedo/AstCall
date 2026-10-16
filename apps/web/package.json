@@ -1,0 +1,22 @@
+{
+  "name": "@astcall/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend do AstCall: Web Component <ast-monitor> e SPA standalone",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@astcall/shared": "*",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.4",
+    "vue-tsc": "^3.3.13"
+  }
+}

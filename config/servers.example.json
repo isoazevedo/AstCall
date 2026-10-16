@@ -1,0 +1,11 @@
+{
+  "servers": [
+    {
+      "id": "pbx1",
+      "name": "PBX Principal",
+      "host": "192.168.0.10",
+      "port": 5038,
+      "enabled": true
+    }
+  ]
+}
