@@ -245,6 +245,8 @@ describe('montagem das actions AMI', () => {
         Exten: '*600',
         Priority: 1,
         Async: 'true',
+        // identificador do ramal de origem (o destino vê quem liga)
+        CallerID: '<9001>',
       },
     });
   });

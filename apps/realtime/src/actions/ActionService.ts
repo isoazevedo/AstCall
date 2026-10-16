@@ -214,8 +214,9 @@ export class ActionService {
         Context: context,
         Exten: p.to,
         Priority: 1,
-        // O telefone do ramal mostra para onde vai ligar
-        CallerID: `"${p.to}" <${p.to}>`,
+        // Identificador do próprio ramal: ele segue na discagem, então o destino vê quem liga
+        // (usar o número de destino aqui faria o destino ver o próprio número).
+        CallerID: `<${p.from}>`,
         Timeout: 30_000,
         Async: 'true',
       },

@@ -16,6 +16,7 @@ const FIXTURES = [
   '08-fila-abandono.jsonl',
   '09-fila-dois-membros.jsonl',
   '10-fila-pausa.jsonl',
+  '11-acoes-painel.jsonl',
 ];
 
 describe('invariantes de todas as gravações de chamada', () => {
@@ -270,5 +271,24 @@ describe('filas (gravações do laboratório)', () => {
       pausedSince: null,
     });
     expect(end.queues.get('suporte-default')?.abandoned).toBe(1);
+  });
+});
+
+describe('cenário 11: ações feitas pelo painel (ligar → transferir → desligar)', () => {
+  const events = loadFixture('11-acoes-painel.jsonl');
+
+  it('o "Ligar" vira uma chamada 9001 ⇄ 9002 com o identificador do ramal de origem', () => {
+    const { snapshot } = replay(events, { until: at('BridgeEnter', 'PJSIP/9001') });
+    const call = snapshot.calls[0]!;
+    expect(call.status).toBe('talking');
+    expect(linksByName(snapshot, call.id)).toEqual([['PJSIP/9001', 'PJSIP/9002']]);
+    const caller = snapshot.channels.find((c) => c.name.startsWith('PJSIP/9001'))!;
+    expect(caller.callerId.num).toBe('9001');
+  });
+
+  it('a transferência mantém a chamada e liga 9002 ⇄ 9005', () => {
+    const { snapshot } = replay(events, { until: nth(2, at('BridgeEnter', 'PJSIP/9002')) });
+    expect(snapshot.calls).toHaveLength(1);
+    expect(linksByName(snapshot, snapshot.calls[0]!.id)).toEqual([['PJSIP/9002', 'PJSIP/9005']]);
   });
 });
