@@ -34,7 +34,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 15  | **Escuta (item 14)**                   | Botão Escutar com modos Ouvir/Sussurrar/Intervir (ChanSpy `qE`/`qEw`/`qEB`); o diálogo sempre pede o ramal que vai tocar (ex.: ramal de um diretor), sugerindo o último usado; "Em escuta" na chamada e "9005 escutando 9002" na linha do supervisor. Os três modos validados com telefones no laboratório. Gravação manual fora de escopo (o AzCall já grava todas as chamadas).                                                                                                                                            | 🔄 Homologação |
 | 16  | **Integração AzCall (item 16)**        | Token RS256 emitido pelo AzCall (`AstCallTokenService`) com permissões `astcall.*` e escopo multi-empresa; snapshot/deltas/ações recortados por empresa; página `/astcall`, módulo liga/desliga em /config, menu; AstCall no servidor do laboratório (PM2 + proxy Apache em `/astcall/`). Teste de contrato OK (admin vê 12 endpoints/3 filas; super_admin vê 24/5). Validado no navegador: super_admin vê tudo; admin da empresa Avoip vê só o ramal 7100 (exatamente o cadastro). Contrato em `docs/INTEGRACAO_AZCALL.md`. | ✅ Produção    |
 | 17  | **Modo TV (item 24)**                  | `<ast-monitor mode="tv">`: wallboard escuro, só leitura, letras grandes; telas Filas (aguardando, maior espera ao vivo, atendidas, abandono, NS, agentes) e Chamadas (chamadas em curso + mapa de ramais); rodízio a cada 15 s (atributo `rotate`) que o usuário liga/desliga na própria tela, com a escolha salva no navegador; tela cheia. AzCall: `/astcall/tv` e botão "Modo TV"; standalone: `/?tv`.                                                                                                                    | ✅ Produção    |
-| 18  | **Membros de fila (item 13)**          | Adicionar membro dinâmico, remover (só dinâmico) e alterar penalidade pelo painel, com a permissão nova `queue_manage` e escopo por empresa; membros fixos (cadastro do AzCall) identificados na tela. Conferências fora (item 10 pausado).                                                                                                                                                                                                                                                                                  | 🔄 Homologação |
+| 18  | **Membros de fila (item 13)**          | Adicionar membro dinâmico, remover (só dinâmico) e alterar penalidade pelo painel, com a permissão nova `queue_manage` e escopo por empresa; membros fixos (cadastro do AzCall) identificados na tela. Ações em menu "⋮" (também nas chamadas). Validado no laboratório. Conferências fora (item 10 pausado).                                                                                                                                                                                                                | ✅ Produção    |
 
 ---
 
@@ -359,7 +359,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 13. Ações de filas e conferências — 🔄
+#### 13. Ações de filas e conferências — ✅ (filas)
 
 **O que é:** Adicionar, remover, pausar membros e alterar penalidade; expulsar, silenciar e bloquear em conferências.
 
@@ -379,7 +379,8 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 - [x] Escopo multi-empresa: ramal e fila precisam ser da empresa
 - [x] Painel: botão "Adicionar" no card da fila (lista só ramais visíveis fora da fila, penalidade, entrar pausado), marca "dinâmico", botão de penalidade e de remover (só dinâmico)
 - [x] Token tolerante a permissões desconhecidas (AzCall pode ser atualizado antes do AstCall)
-- [ ] Validar no laboratório
+- [x] Validado no laboratório: 9005 adicionado à suporte-default (dinâmico, persistido no astdb), removido e adicionado de novo
+- [x] Ações num menu "⋮" (`ActionMenu`, dropdown/dropup) no membro de fila e em cada participante das chamadas
 - [ ] ~~Conferências~~ (item 10 pausado)
 
 **Arquivos envolvidos:**
@@ -620,3 +621,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Novo item 24 (modo TV, inspirado no SmartQueue) implementado; validado no navegador com o laboratório (rodízio, preferência salva); aguarda teste numa TV com chamadas                              |
 | 2026-10-17 | Claude Code | Item 24 instalado e validado no laboratório com chamada na fila; falta só observar a sessão em uso prolongado                                                                                       |
 | 2026-10-17 | Claude Code | Item 13 implementado (gestão de membros de fila, permissão `queue_manage`); aguarda validação no laboratório                                                                                        |
+| 2026-10-17 | Claude Code | Item 13 (filas) validado no laboratório; ações de membro e de chamada passam para um menu "⋮"                                                                                                       |
