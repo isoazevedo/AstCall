@@ -65,6 +65,7 @@ eventfilter = Event: FullyBooted
 eventfilter = Event: Reload
 ; Itens das listas da sincronização (defensivo: ver nota na seção 4)
 eventfilter = Event: EndpointList
+eventfilter = Event: EndpointDetail
 eventfilter = Event: ContactList
 eventfilter = Event: DeviceStateListComplete
 eventfilter = Event: CoreShowChannel
@@ -154,9 +155,14 @@ asterisk -rx "manager show command Originate"
   `BridgeCreate/Enter/Leave/Destroy`. Efeito colateral: passam alguns eventos a mais —
   `SoftHangupRequest` (contém `Hangup`), `MusicOnHoldStart/Stop` (contém `Hold`), `LocalBridge`
   (contém `Bridge`) —, irrelevantes em volume; os handlers ignoram o que não conhecem.
-- Os itens de lista da sincronização (`EndpointList`, `CoreShowChannel`...) são respostas a actions e,
-  pelo que o código do Asterisk indica, não passam pelo filtro. Mesmo assim estão incluídos: se algum
-  for filtrado, a sincronização nunca termina (a lista não chega ao fim) e o AstCall reconecta em loop.
+- Os itens de lista da sincronização (`EndpointList`, `CoreShowChannel`...) e o `EndpointDetail`
+  (resposta do `PJSIPShowEndpoint`, usado para descobrir o contexto do ramal ao ligar/transferir) são
+  respostas a actions. Estão incluídos por precaução: se algum for filtrado, a sincronização nunca
+  termina (a lista não chega ao fim) e o AstCall reconecta em loop.
+- **Verificado no laboratório (2026-10-17, Asterisk 20.9.2)** com o usuário `astcall` e estes filtros:
+  `PJSIPShowEndpoints`, `PJSIPShowContacts`, `DeviceStateList`, `CoreShowChannels`, `BridgeList`,
+  `QueueStatus` e `PJSIPShowEndpoint` responderam com todos os itens e o evento de fim de lista.
+- O filtro vale a partir do login: depois de `manager reload`, reinicie o AstCall (`pm2 restart astcall`).
 - Ao adicionar um domínio novo ao AstCall, acrescente aqui os eventos dele.
 
 ### Efeito medido no laboratório
