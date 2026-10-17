@@ -14,7 +14,9 @@
     "keys:generate": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/keys-generate.ts",
     "user": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/users.ts",
     "audit": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/audit.ts",
-    "load-test": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/load-test.ts"
+    "load-test": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/load-test.ts",
+    "demo": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/demo.ts",
+    "screenshots": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/docs-screenshots.ts"
   },
   "dependencies": {
     "@astcall/shared": "*",

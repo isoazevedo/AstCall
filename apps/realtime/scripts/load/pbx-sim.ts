@@ -27,6 +27,15 @@ export interface SimOptions {
   talkSeconds: number;
   /** Fração das chamadas que passam por fila (0..1). */
   queueRatio: number;
+  /** Porta TCP do AMI simulado (padrão: qualquer porta livre). */
+  port?: number;
+  /**
+   * Perfil de demonstração (prints, testes manuais): ramais a partir de 2001 com nomes de
+   * pessoas, filas com nomes reais, clientes ligando de fora por um tronco e alguns ramais
+   * desconectados. Sem ele, o simulador gera dados de teste de carga (ramais 10000+ e o
+   * CallerIDName "lt:<ms>" para medir a latência).
+   */
+  demo?: boolean;
 }
 
 /** Mensagens trocadas com a thread principal. */
@@ -48,8 +57,63 @@ type Fields = Record<string, string>;
 
 const opts = workerData as SimOptions;
 const CTX = 'from-internal-sim';
-const ext = (i: number) => String(10000 + i); // ramais 10000, 10001...
-const queueName = (q: number) => `fila${q}-sim`;
+const ext = (i: number) => String((opts.demo ? 2001 : 10000) + i); // ramais 2001… ou 10000…
+const DEMO_QUEUES = ['suporte', 'vendas', 'financeiro', 'cobranca', 'retencao', 'ouvidoria'];
+const queueName = (q: number) => (opts.demo ? (DEMO_QUEUES[q] ?? `fila${q}`) : `fila${q}-sim`);
+
+// ---- perfil de demonstração
+const FIRST = [
+  'Ana',
+  'Bruno',
+  'Carla',
+  'Diego',
+  'Elisa',
+  'Fábio',
+  'Gabriela',
+  'Heitor',
+  'Isabela',
+  'João',
+  'Larissa',
+  'Marcos',
+  'Natália',
+  'Otávio',
+  'Paula',
+  'Rafael',
+  'Sofia',
+  'Thiago',
+  'Vanessa',
+  'Wagner',
+];
+const LAST = [
+  'Souza',
+  'Lima',
+  'Costa',
+  'Rocha',
+  'Alves',
+  'Pereira',
+  'Martins',
+  'Barbosa',
+  'Ribeiro',
+  'Gomes',
+];
+/** Nome fixo de cada ramal no perfil de demonstração. */
+const personName = (e: string) => {
+  const i = Number(e) - 2001;
+  return `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]}`;
+};
+/** Tronco por onde chegam as ligações de clientes (só no perfil de demonstração). */
+const TRUNK = 'operadora';
+/** Ramais desconectados (sem telefone registrado) no perfil de demonstração: ~15%. */
+const offline = new Set<string>();
+if (opts.demo) {
+  for (let i = 0; i < opts.endpoints; i++) if (i % 7 === 5) offline.add(ext(i));
+}
+/** Número de telefone de cliente (fictício, faixa de documentação não existe em telefonia). */
+const customerNumber = () =>
+  `11 9${String(1000 + Math.floor(Math.random() * 9000))}-${String(1000 + Math.floor(Math.random() * 9000))}`;
+/** Identificador de quem liga: nome do ramal (demo) ou a marca de tempo (teste de carga). */
+const callerName = (e: string) => (opts.demo ? personName(e) : `lt:${Date.now()}`);
+const calleeName = (e: string) => (opts.demo ? personName(e) : e);
 
 // ------------------------------------------------------------------ estado vivo
 
@@ -68,8 +132,34 @@ const channels = new Map<string, LiveChannel>();
 const bridges = new Map<string, string[]>();
 const busy = new Set<string>(); // ramais em uso
 const waiting = new Map<string, { queue: string; uniqueid: string; joinedAt: number }>();
-const members = new Map<string, { calls: number; incall: boolean; ringing: boolean }>(); // "fila|ramal"
+/** Membros de fila ("fila|ramal"); pausedReason vazio = não pausado. */
+const members = new Map<
+  string,
+  {
+    calls: number;
+    incall: boolean;
+    ringing: boolean;
+    pausedReason: string;
+    /** Fim da última chamada atendida (s desde 1970; 0 = nenhuma). */
+    lastCall: number;
+  }
+>();
 const devState = new Map<string, string>();
+/** Totais por fila, informados no QueueParams (como o Asterisk faz). */
+const queueStats = new Map<
+  string,
+  { completed: number; abandoned: number; holdSum: number; talkSum: number; withinSL: number }
+>();
+const statsOf = (q: string) => {
+  let st = queueStats.get(q);
+  if (!st) {
+    st = { completed: 0, abandoned: 0, holdSum: 0, talkSum: 0, withinSL: 0 };
+    queueStats.set(q, st);
+  }
+  return st;
+};
+/** Nível de serviço das filas simuladas (s). */
+const SERVICE_LEVEL_S = 20;
 
 let seq = 0;
 let chanSeq = 0;
@@ -86,6 +176,9 @@ for (let q = 0; q < opts.queues; q++) {
       calls: 0,
       incall: false,
       ringing: false,
+      lastCall: 0,
+      // demonstração: alguns membros pausados, como numa operação real
+      pausedReason: opts.demo && m % 5 === 3 ? (q % 2 ? 'Treinamento' : 'Almoço') : '',
     });
   }
 }
@@ -185,9 +278,15 @@ function hangup(ch: LiveChannel): void {
 function freeEndpoint(): string | null {
   for (let tries = 0; tries < 20; tries++) {
     const e = ext(Math.floor(Math.random() * opts.endpoints));
-    if (!busy.has(e)) return e;
+    if (!busy.has(e) && !offline.has(e)) return e;
   }
   return null;
+}
+
+/** Ramais do PBX (e o tronco, no perfil de demonstração). */
+function* allEndpoints(): Generator<string> {
+  for (let i = 0; i < opts.endpoints; i++) yield ext(i);
+  if (opts.demo) yield TRUNK;
 }
 
 function endCall(endpoints: string[]): void {
@@ -209,9 +308,9 @@ function directCall(): void {
   busy.add(b);
   callsStarted++;
 
-  const ca = newChannel(a, null, `lt:${Date.now()}`);
+  const ca = newChannel(a, null, callerName(a));
   device(a, 'INUSE');
-  const cb = newChannel(b, ca.linkedid, b);
+  const cb = newChannel(b, ca.linkedid, calleeName(b));
   emit({ Event: 'DialBegin', ...chanFields(ca), ...chanFields(cb, 'Dest'), DialString: b });
   setState(cb, 'Ringing');
   device(b, 'RINGING');
@@ -243,21 +342,26 @@ function memberStatus(queue: string, e: string): void {
     Membership: 'static',
     Penalty: '0',
     CallsTaken: String(m.calls),
+    LastCall: String(m.lastCall),
     InCall: m.incall ? '1' : '0',
-    Status: m.ringing ? '6' : m.incall ? '2' : busy.has(e) ? '2' : '1',
-    Paused: '0',
-    PausedReason: '',
+    Status: offline.has(e) ? '5' : m.ringing ? '6' : m.incall ? '2' : busy.has(e) ? '2' : '1',
+    Paused: m.pausedReason ? '1' : '0',
+    PausedReason: m.pausedReason,
   });
 }
 
 function queueCall(): void {
   const q = queueName(Math.floor(Math.random() * opts.queues));
-  const a = freeEndpoint();
+  // Demonstração: o cliente liga de fora (tronco); teste de carga: um ramal liga para a fila
+  const a = opts.demo ? TRUNK : freeEndpoint();
   if (!a) return;
-  busy.add(a);
+  if (!opts.demo) busy.add(a);
   callsStarted++;
-  const ca = newChannel(a, null, `lt:${Date.now()}`);
-  device(a, 'INUSE');
+  const ca = opts.demo ? newChannel(a, null, '') : newChannel(a, null, callerName(a));
+  if (opts.demo) {
+    ca.num = customerNumber();
+    ca.cidName = '';
+  } else device(a, 'INUSE');
   setState(ca, 'Up'); // a aplicação Queue atende o chamador
   const joinedAt = Date.now();
   waiting.set(ca.uniqueid, { queue: q, uniqueid: ca.uniqueid, joinedAt });
@@ -279,6 +383,7 @@ function queueCall(): void {
     if (!channels.has(ca.uniqueid)) return;
     if (Date.now() - joinedAt > 30_000) {
       // desiste depois de 30 s
+      statsOf(q).abandoned++;
       emit({
         Event: 'QueueCallerAbandon',
         ...chanFields(ca),
@@ -288,18 +393,19 @@ function queueCall(): void {
       });
       leave();
       hangup(ca);
-      endCall([a]);
+      endCall(opts.demo ? [] : [a]);
       return;
     }
     const free = [...members.keys()]
       .filter((k) => k.startsWith(`${q}|`))
       .map((k) => k.split('|')[1]!)
+      .filter((e) => !offline.has(e) && !members.get(`${q}|${e}`)!.pausedReason)
       .find((e) => !busy.has(e));
     if (!free) return later(1000, tryAgent);
 
     busy.add(free);
     const m = members.get(`${q}|${free}`)!;
-    const cb = newChannel(free, ca.linkedid, free);
+    const cb = newChannel(free, ca.linkedid, calleeName(free));
     const agent = {
       ...chanFields(ca),
       ...chanFields(cb, 'Dest'),
@@ -318,29 +424,38 @@ function queueCall(): void {
       leave();
       m.ringing = false;
       m.incall = true;
+      const hold = Math.round((Date.now() - joinedAt) / 1000);
+      const answeredAt = Date.now();
       emit({
         Event: 'AgentConnect',
         ...agent,
         ...chanFields(cb, 'Dest'),
-        HoldTime: '3',
+        HoldTime: String(hold),
         RingTime: '3',
       });
       bridgeUp(ca, cb);
       device(free, 'INUSE');
       memberStatus(q, free);
       later(around(opts.talkSeconds * 1000), () => {
+        const talk = Math.round((Date.now() - answeredAt) / 1000);
+        const st = statsOf(q);
+        st.completed++;
+        st.holdSum += hold;
+        st.talkSum += talk;
+        if (hold <= SERVICE_LEVEL_S) st.withinSL++;
         emit({
           Event: 'AgentComplete',
           ...agent,
-          HoldTime: '3',
-          TalkTime: String(opts.talkSeconds),
+          HoldTime: String(hold),
+          TalkTime: String(talk),
           Reason: 'caller',
         });
         hangup(cb);
         hangup(ca);
         m.incall = false;
         m.calls++;
-        endCall([a, free]);
+        m.lastCall = Math.floor(Date.now() / 1000);
+        endCall(opts.demo ? [free] : [a, free]);
         memberStatus(q, free);
       });
     });
@@ -407,10 +522,10 @@ function onAction(a: AmiMessage, socket: Socket & { authed?: boolean }): void {
       return list(
         socket,
         id,
-        Array.from({ length: opts.endpoints }, (_, i) => ({
+        [...allEndpoints()].map((e) => ({
           Event: 'EndpointList',
-          ObjectName: ext(i),
-          DeviceState: busy.has(ext(i)) ? 'In use' : 'Not in use',
+          ObjectName: e,
+          DeviceState: offline.has(e) ? 'Unavailable' : busy.has(e) ? 'In use' : 'Not in use',
         })),
         'EndpointListComplete',
       );
@@ -418,24 +533,26 @@ function onAction(a: AmiMessage, socket: Socket & { authed?: boolean }): void {
       return list(
         socket,
         id,
-        Array.from({ length: opts.endpoints }, (_, i) => ({
-          Event: 'ContactList',
-          Endpoint: ext(i),
-          Uri: `sip:${ext(i)}@198.51.100.${(i % 250) + 1}:5060`,
-          Status: 'Reachable',
-          UserAgent: 'SimPhone/1.0',
-          RoundtripUsec: '15000',
-        })),
+        [...allEndpoints()]
+          .filter((e) => !offline.has(e))
+          .map((e, i) => ({
+            Event: 'ContactList',
+            Endpoint: e,
+            Uri: `sip:${e}@198.51.100.${(i % 250) + 1}:5060`,
+            Status: 'Reachable',
+            UserAgent: e === TRUNK ? 'Operadora SIP' : 'SimPhone/1.0',
+            RoundtripUsec: '15000',
+          })),
         'ContactListComplete',
       );
     case 'devicestatelist':
       return list(
         socket,
         id,
-        Array.from({ length: opts.endpoints }, (_, i) => ({
+        [...allEndpoints()].map((e) => ({
           Event: 'DeviceStateChange',
-          Device: `PJSIP/${ext(i)}`,
-          State: devState.get(ext(i)) ?? 'NOT_INUSE',
+          Device: `PJSIP/${e}`,
+          State: offline.has(e) ? 'UNAVAILABLE' : (devState.get(e) ?? 'NOT_INUSE'),
         })),
         'DeviceStateListComplete',
       );
@@ -473,13 +590,19 @@ function onAction(a: AmiMessage, socket: Socket & { authed?: boolean }): void {
       const items: Fields[] = [];
       for (let q = 0; q < opts.queues; q++) {
         const name = queueName(q);
+        const st = statsOf(name);
+        const avg = (sum: number) => String(st.completed ? Math.round(sum / st.completed) : 0);
         items.push({
           Event: 'QueueParams',
           Queue: name,
           Strategy: 'ringall',
           Max: '0',
-          Completed: '0',
-          Abandoned: '0',
+          Completed: String(st.completed),
+          Abandoned: String(st.abandoned),
+          Holdtime: avg(st.holdSum),
+          TalkTime: avg(st.talkSum),
+          ServiceLevel: String(SERVICE_LEVEL_S),
+          ServicelevelPerf: (st.completed ? (st.withinSL / st.completed) * 100 : 0).toFixed(1),
         });
         for (const [key, m] of members) {
           if (!key.startsWith(`${name}|`)) continue;
@@ -492,9 +615,11 @@ function onAction(a: AmiMessage, socket: Socket & { authed?: boolean }): void {
             Membership: 'static',
             Penalty: '0',
             CallsTaken: String(m.calls),
+            LastCall: String(m.lastCall),
             InCall: m.incall ? '1' : '0',
-            Status: m.ringing ? '6' : m.incall || busy.has(e) ? '2' : '1',
-            Paused: '0',
+            Status: offline.has(e) ? '5' : m.ringing ? '6' : m.incall || busy.has(e) ? '2' : '1',
+            Paused: m.pausedReason ? '1' : '0',
+            PausedReason: m.pausedReason,
           });
         }
         let pos = 0;
@@ -540,7 +665,7 @@ const server = createServer((socket: Socket & { authed?: boolean }) => {
   });
 });
 
-server.listen(0, '127.0.0.1', () => {
+server.listen(opts.port ?? 0, '127.0.0.1', () => {
   const addr = server.address();
   if (addr && typeof addr === 'object') {
     parentPort!.postMessage({ type: 'listening', port: addr.port } satisfies SimReply);

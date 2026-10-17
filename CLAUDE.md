@@ -55,6 +55,7 @@ apps/realtime/   # backend Node.js (AMI, estado, WebSocket, ações, autenticaç
 apps/web/        # frontend Vue: Web Component <ast-monitor> + SPA standalone (login + painel)
 packages/shared/ # tipos e contratos compartilhados (protocolo WS, claims do JWT, entidades)
 docs/            # roadmap, manager.conf, contratos de integração
+docs/guias/      # guias para clientes e testers (uso, instalação, demonstração); prints em docs/img
 reference/       # MonAst original — apenas referência, fora do git
 ```
 
@@ -129,4 +130,5 @@ reference/       # MonAst original — apenas referência, fora do git
 - Antes de implementar algo grande, apresentar um plano curto em pt-BR.
 - Preferir código simples, modular e bem comentado (comentários em pt-BR).
 - Manter `docs/ROADMAP.md` atualizado (status dos itens e histórico de revisões).
+- Mudanças visíveis ao usuário: atualizar os guias em `docs/guias/` e refazer os prints com `npm run demo` + `npm run screenshots` (dados fictícios; nunca usar dados reais do laboratório nos prints).
 - Ao terminar uma tarefa, resumir em poucas linhas o que foi feito e o próximo passo sugerido.

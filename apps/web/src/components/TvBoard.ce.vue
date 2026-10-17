@@ -153,7 +153,7 @@ const totals = computed(() => ({
 
       <div class="tv-totals">
         <span
-          ><b>{{ totals.calls }}</b> chamadas</span
+          ><b>{{ totals.calls }}</b> {{ totals.calls === 1 ? 'chamada' : 'chamadas' }}</span
         >
         <span :class="{ 'tone-text-warning': totals.waiting > 0 }">
           <b>{{ totals.waiting }}</b> aguardando

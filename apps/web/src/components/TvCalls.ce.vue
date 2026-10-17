@@ -62,7 +62,9 @@ const partyText = (p: CallView['parties'][number]) => (p.name ? `${p.num} ${p.na
           <span class="tv-call-time">{{ duration(c) }}</span>
         </li>
       </ul>
-      <p v-if="hiddenCalls > 0" class="tv-more">+ {{ hiddenCalls }} chamadas</p>
+      <p v-if="hiddenCalls > 0" class="tv-more">
+        + {{ hiddenCalls }} {{ hiddenCalls === 1 ? 'chamada' : 'chamadas' }}
+      </p>
     </section>
 
     <section class="ast-card tv-endpoints">

@@ -76,9 +76,13 @@ function longestWait(q: QueueView): number {
 
       <!-- Agentes por estado -->
       <div class="tv-agents">
-        <span class="ast-badge tone-success">{{ q.available }} livres</span>
+        <span class="ast-badge tone-success">
+          {{ q.available }} {{ q.available === 1 ? 'livre' : 'livres' }}
+        </span>
         <span class="ast-badge tone-primary">{{ q.busy }} em atendimento</span>
-        <span v-if="q.paused" class="ast-badge tone-warning">{{ q.paused }} pausados</span>
+        <span v-if="q.paused" class="ast-badge tone-warning">
+          {{ q.paused }} {{ q.paused === 1 ? 'pausado' : 'pausados' }}
+        </span>
         <span v-if="q.offline" class="ast-badge tone-secondary">{{ q.offline }} offline</span>
       </div>
     </article>

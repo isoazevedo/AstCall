@@ -1,0 +1,11 @@
+{
+  "servers": [
+    {
+      "id": "demo",
+      "name": "PBX de demonstração",
+      "host": "127.0.0.1",
+      "port": 5039,
+      "enabled": true
+    }
+  ]
+}

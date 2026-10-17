@@ -20,8 +20,12 @@ const view = ref<'checking' | 'login' | 'app'>('checking');
 /** Endereço com "?tv" abre o modo TV (wallboard), sem a barra superior. "?tv&rotate=30" muda o intervalo. */
 const params = new URLSearchParams(window.location.search);
 const tv = params.has('tv');
-/** "?widgets": página de demonstração dos widgets (<ast-filas>, <ast-chamadas>, <ast-ramais>). */
+/**
+ * "?widgets": página de demonstração dos widgets (<ast-filas>, <ast-chamadas>, <ast-ramais>).
+ * "?widgets=suporte,vendas" mostra só essas filas no <ast-filas>.
+ */
 const widgets = params.has('widgets');
+const widgetQueues = params.get('widgets') ?? '';
 const rotate = params.get('rotate') ?? undefined;
 const me = ref<SessionInfo>({ sub: '', name: '', perms: [] });
 const canManageUsers = computed(() => me.value.perms.includes('users'));
@@ -114,11 +118,13 @@ async function logout(): Promise<void> {
         <ast-chamadas ws-url="/monitor-ws" token-url="/auth/refresh" @auth-required="logout" />
       </section>
       <section>
-        <h5 class="demo-title">&lt;ast-filas queues="suporte-default"&gt;</h5>
+        <h5 class="demo-title">
+          &lt;ast-filas{{ widgetQueues ? ` queues="${widgetQueues}"` : '' }}&gt;
+        </h5>
         <ast-filas
           ws-url="/monitor-ws"
           token-url="/auth/refresh"
-          queues="suporte-default"
+          :queues="widgetQueues"
           @auth-required="logout"
         />
       </section>
