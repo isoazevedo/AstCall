@@ -53,8 +53,11 @@ function place(): void {
   const up = r.bottom + h + 8 > window.innerHeight && r.top - h - 8 > 0;
   pos.value = {
     top: up ? r.top - h - 4 : r.bottom + 4,
-    // alinhado pela direita do botão, sem sair da tela
-    left: Math.max(8, Math.min(r.right - WIDTH, window.innerWidth - WIDTH - 8)),
+    // alinhado pela direita do botão; sem espaço à esquerda, alinha pela esquerda dele
+    left: Math.max(
+      8,
+      Math.min(r.right - WIDTH >= 8 ? r.right - WIDTH : r.left, window.innerWidth - WIDTH - 8),
+    ),
   };
   placed.value = true;
 }
