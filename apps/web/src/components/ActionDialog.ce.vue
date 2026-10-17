@@ -46,7 +46,8 @@ const firstInput = ref<HTMLInputElement | null>(null);
 watch(
   () => store.dialog,
   async (d) => {
-    number.value = d?.kind === 'spy' ? lastListener() : '';
+    // Escuta: último ramal usado neste navegador; senão, o ramal do usuário (vem do token)
+    number.value = d?.kind === 'spy' ? lastListener() || store.user?.extension || '' : '';
     reason.value = '';
     allQueues.value = false;
     spyMode.value = 'listen';

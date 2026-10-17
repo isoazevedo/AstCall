@@ -25,6 +25,8 @@ export const envSchema = z.object({
 
   // Emissor local (modo standalone)
   LOCAL_JWT_ISSUER: z.string().min(1).default('astcall'),
+  // Pasta do Web Component compilado (servido em /static/ast-monitor.js para o AzCall)
+  STATIC_DIR: z.string().min(1).default('apps/web/dist/element'),
   LOCAL_JWT_PRIVATE_KEY_FILE: z.string().min(1).default('keys/local-private.pem'),
   LOCAL_JWT_PUBLIC_KEY_FILE: z.string().min(1).default('keys/local-public.pem'),
   USERS_DB_FILE: z.string().min(1).default('data/users.sqlite'),

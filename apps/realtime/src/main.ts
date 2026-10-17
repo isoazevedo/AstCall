@@ -5,6 +5,7 @@ import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { authRoutes, LocalIssuer, TokenVerifier, UserRepository } from './auth/index.js';
 import { ConfigError, loadConfig, localAuthEnabled, type AppConfig } from './config/index.js';
 import { createHttpServer, type RouteHandler } from './http/server.js';
+import { staticRoutes } from './http/static.js';
 import { createLogger } from './logger.js';
 import { ServerStore } from './state/ServerStore.js';
 import { Synchronizer } from './sync/Synchronizer.js';
@@ -92,6 +93,8 @@ async function main(): Promise<void> {
   });
 
   // ---- Servidor HTTP: rotas de autenticação + WebSocket (WS_PATH) no mesmo endereço
+  // Web Component para o AzCall (e qualquer página que queira embutir o painel)
+  Object.assign(routes, staticRoutes(config.staticDir, ['ast-monitor.js']));
   const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
   const actions = new ActionService(actionTargets, log);
   const hub = new Hub(feeds, verifier, log, { actions });

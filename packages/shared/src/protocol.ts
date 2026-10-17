@@ -78,7 +78,8 @@ export type ClientMessage =
 export interface AuthOkMessage {
   t: 'auth_ok';
   protocol: typeof PROTOCOL_VERSION;
-  user: { sub: string; name: string };
+  /** `extension`: ramal do usuário (quando o emissor informa), sugestão nos diálogos. */
+  user: { sub: string; name: string; extension?: string };
   /** Expiração do token atual (ms): renovar antes. */
   expiresAt: number;
   /** Servidores que o usuário pode ver (permissão `view`). */

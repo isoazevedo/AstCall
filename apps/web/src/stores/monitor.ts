@@ -22,7 +22,7 @@ import { callView, compareEndpointIds, endpointView, queueView } from '../lib/vi
 export const useMonitorStore = defineStore('monitor', () => {
   // ---------------------------------------------------------------- estado
   const connection = ref<ConnectionState>('idle');
-  const user = ref<{ sub: string; name: string } | null>(null);
+  const user = ref<{ sub: string; name: string; extension?: string } | null>(null);
   /** Estado de cada servidor, por id. `reactive` torna as alterações internas reativas. */
   const servers = reactive<Record<string, ServerState>>({});
   const activeServerId = ref<string | null>(null);

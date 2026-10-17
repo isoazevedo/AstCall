@@ -272,7 +272,7 @@ class Session implements FeedSubscriber {
     this.send({
       t: 'auth_ok',
       protocol: PROTOCOL_VERSION,
-      user: { sub: claims.sub, name: claims.name },
+      user: { sub: claims.sub, name: claims.name, extension: claims.extension },
       expiresAt: claims.exp * 1000,
       servers: this.hub.visibleFeeds(claims).map((f) => ({
         id: f.serverId,

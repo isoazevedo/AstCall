@@ -23,6 +23,8 @@ export interface AppConfig {
   servers: AmiServerConfig[];
   /** Pasta de gravação do tráfego AMI (desligado quando indefinido). */
   amiRecordDir: string | undefined;
+  /** Pasta do Web Component compilado. */
+  staticDir: string;
   auth: AuthConfig;
 }
 
@@ -123,6 +125,7 @@ export function buildConfig(
     http: { host: env.HTTP_HOST, port: env.HTTP_PORT, trustProxy: env.TRUST_PROXY },
     servers,
     amiRecordDir: env.AMI_RECORD_DIR ? resolvePath(rootDir, env.AMI_RECORD_DIR) : undefined,
+    staticDir: resolvePath(rootDir, env.STATIC_DIR),
     auth: buildAuth(env, rootDir),
   };
 }
