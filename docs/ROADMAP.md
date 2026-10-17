@@ -33,7 +33,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 14  | **Ações (item 12 + pausa do item 13)** | `ActionService` com lista fechada (pausar/retomar membro, desligar, transferir cega, ligar), permissão por servidor, limite por usuário, contexto do ramal descoberto no Asterisk (tenant do AzCall) e auditoria; botões no painel conforme permissões. Validado no laboratório com telefones: pausar/retomar, ligar 9001→9002, transferir 9002→9005, desligar.                                                                                                                                                              | 🔄 Homologação |
 | 15  | **Escuta (item 14)**                   | Botão Escutar com modos Ouvir/Sussurrar/Intervir (ChanSpy `qE`/`qEw`/`qEB`); o diálogo sempre pede o ramal que vai tocar (ex.: ramal de um diretor), sugerindo o último usado; "Em escuta" na chamada e "9005 escutando 9002" na linha do supervisor. Os três modos validados com telefones no laboratório. Gravação manual fora de escopo (o AzCall já grava todas as chamadas).                                                                                                                                            | 🔄 Homologação |
 | 16  | **Integração AzCall (item 16)**        | Token RS256 emitido pelo AzCall (`AstCallTokenService`) com permissões `astcall.*` e escopo multi-empresa; snapshot/deltas/ações recortados por empresa; página `/astcall`, módulo liga/desliga em /config, menu; AstCall no servidor do laboratório (PM2 + proxy Apache em `/astcall/`). Teste de contrato OK (admin vê 12 endpoints/3 filas; super_admin vê 24/5). Validado no navegador: super_admin vê tudo; admin da empresa Avoip vê só o ramal 7100 (exatamente o cadastro). Contrato em `docs/INTEGRACAO_AZCALL.md`. | ✅ Produção    |
-| 17  | **Modo TV (item 24)**                  | `<ast-monitor mode="tv">`: wallboard escuro, só leitura, letras grandes; telas Filas (aguardando, maior espera ao vivo, atendidas, abandono, NS, agentes) e Chamadas (chamadas em curso + mapa de ramais); rodízio a cada 15 s (atributo `rotate`) que o usuário liga/desliga na própria tela, com a escolha salva no navegador; tela cheia. AzCall: `/astcall/tv` e botão "Modo TV"; standalone: `/?tv`.                                                                                                                    | 🔄 Homologação |
+| 17  | **Modo TV (item 24)**                  | `<ast-monitor mode="tv">`: wallboard escuro, só leitura, letras grandes; telas Filas (aguardando, maior espera ao vivo, atendidas, abandono, NS, agentes) e Chamadas (chamadas em curso + mapa de ramais); rodízio a cada 15 s (atributo `rotate`) que o usuário liga/desliga na própria tela, com a escolha salva no navegador; tela cheia. AzCall: `/astcall/tv` e botão "Modo TV"; standalone: `/?tv`.                                                                                                                    | ✅ Produção    |
 
 ---
 
@@ -533,7 +533,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 24. Modo TV (wallboard) — 🔄
+#### 24. Modo TV (wallboard) — ✅
 
 **O que é:** O mesmo `<ast-monitor>` com `mode="tv"`: tela escura e só leitura para deixar numa TV da operação, inspirada no "Modo TV" do SmartQueue do AzCall.
 
@@ -548,7 +548,8 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 - [x] Tela cheia, relógio, totais, selo de conexão; controles somem com o mouse parado
 - [x] AzCall: rota `/astcall/tv` (sem o layout, `?rotate=N`) e botão "Modo TV" em `/astcall`
 - [x] Standalone: `/?tv` (e `&rotate=N`) e link "Modo TV" na barra
-- [ ] Validar numa TV real no laboratório (chamadas e fila com espera)
+- [x] Validado no laboratório: chamada do 9005 na fila suporte-default (aguardando e maior espera ao vivo), atendida no 9001 (em conversa, atendidas +1)
+- [ ] Confirmar numa TV ligada por mais de 2 h que a sessão do AzCall não expira (cookie renovado pelo `/astcall/token`)
 
 **Esforço estimado:** P
 **Impacto esperado:** Médio
@@ -602,3 +603,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Item 16 implementado e instalado no laboratório (aguarda validação no navegador com usuários do AzCall)                                                                                             |
 | 2026-10-17 | Claude Code | Item 16 validado no navegador (super_admin e admin de outra empresa); corrigido erro no menu do layout que derrubou o AzCall do laboratório após a implantação                                      |
 | 2026-10-17 | Claude Code | Novo item 24 (modo TV, inspirado no SmartQueue) implementado; validado no navegador com o laboratório (rodízio, preferência salva); aguarda teste numa TV com chamadas                              |
+| 2026-10-17 | Claude Code | Item 24 instalado e validado no laboratório com chamada na fila; falta só observar a sessão em uso prolongado                                                                                       |
