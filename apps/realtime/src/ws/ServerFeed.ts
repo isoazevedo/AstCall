@@ -25,7 +25,11 @@ export interface FeedSources {
 
 /** Quem recebe as mensagens de um servidor (uma sessão WebSocket). */
 export interface FeedSubscriber {
-  send(msg: SnapshotMessage | DeltaMessage | ServerStatusMessage): void;
+  /**
+   * Envia uma mensagem. `json`, quando informado, é a mesma mensagem já serializada
+   * (o lote compartilhado é serializado uma vez só para todos os assinantes sem escopo).
+   */
+  send(msg: SnapshotMessage | DeltaMessage | ServerStatusMessage, json?: string): void;
   /** Escopo do assinante neste servidor (multi-empresa); undefined = vê tudo. */
   scopeFor?(serverId: ServerId): ServerScope | undefined;
 }
@@ -130,10 +134,12 @@ export class ServerFeed {
       seq: ++this.seq,
     };
     const shared: DeltaMessage = { ...base, ops };
+    let sharedJson: string | undefined;
     for (const [sub, view] of this.subscribers) {
       // Com escopo, o lote é recortado. Mesmo vazio ele é enviado, para a numeração (seq)
       // continuar sem lacunas do ponto de vista do cliente.
-      sub.send(view ? { ...base, ops: view.deltas(ops, this.src.store) } : shared);
+      if (view) sub.send({ ...base, ops: view.deltas(ops, this.src.store) });
+      else sub.send(shared, (sharedJson ??= JSON.stringify(shared)));
     }
   }
 

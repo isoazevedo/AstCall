@@ -36,6 +36,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 17  | **Modo TV (item 24)**                   | `<ast-monitor mode="tv">`: wallboard escuro, só leitura, letras grandes; telas Filas (aguardando, maior espera ao vivo, atendidas, abandono, NS, agentes) e Chamadas (chamadas em curso + mapa de ramais); rodízio a cada 15 s (atributo `rotate`) que o usuário liga/desliga na própria tela, com a escolha salva no navegador; tela cheia. AzCall: `/astcall/tv` e botão "Modo TV"; standalone: `/?tv`.                                                                                                                    | ✅ Produção    |
 | 18  | **Membros de fila (item 13)**           | Adicionar membro dinâmico, remover (só dinâmico) e alterar penalidade pelo painel, com a permissão nova `queue_manage` e escopo por empresa; membros fixos (cadastro do AzCall) identificados na tela. Ações em menu "⋮" (também nas chamadas). Validado no laboratório. Conferências fora (item 10 pausado).                                                                                                                                                                                                                | ✅ Produção    |
 | 19  | **Reconciliação e auditoria (item 15)** | Canais e bridges reconciliados a cada 60 s (fantasmas removidos, perdidos criados, sem sobrescrever o que existe); auditoria das ações em arquivo JSON por linha com `npm run audit` e logrotate.                                                                                                                                                                                                                                                                                                                            | ✅ Produção    |
+| 20  | **Replay e carga (item 21)**            | Replay das 12 gravações com verificação snapshot + deltas = estado do servidor; `npm run load-test` com PBX e navegadores simulados; medidas em `docs/CARGA.md` (2000 ramais/~830 chamadas/150 navegadores: 8% do event loop; recorte por empresa é o custo dominante → item 25).                                                                                                                                                                                                                                            | ✅ Produção    |
 
 ---
 
@@ -519,11 +520,18 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 21. Testes de replay e carga
+#### 21. Testes de replay e carga — ✅
 
-**O que é:** Gravar sessões reais de eventos AMI e reproduzi-las contra o store para testes de regressão e desempenho.
+**O que é:** Reproduzir sessões reais de eventos AMI contra o estado (regressão) e medir o backend sob carga simulada.
 
-**Por que fazer:** Garante que a correlação de chamadas (transferências, filas) não quebre com mudanças futuras.
+**Por que fazer:** Garante que a correlação de chamadas (transferências, filas) não quebre com mudanças futuras e mostra até onde o backend aguenta antes de um cliente grande.
+
+**Escopo:**
+
+- [x] Replay: snapshot em qualquer ponto + deltas (um a um ou em lotes compactados) = estado do servidor, nas 12 gravações reais (`test/state/replay-consistency.test.ts`), além dos cenários, idempotência e escopo já existentes
+- [x] Carga: `npm run load-test` com PBX simulado (mesmos eventos das gravações, listas com o estado vivo) e navegadores simulados em worker threads; mede eventos/s, ocupação do event loop, memória, latência PBX → navegador, tráfego por navegador, ressincronizações e consistência final
+- [x] Resultados e leitura em `docs/CARGA.md`: 2000 ramais / ~830 chamadas / 150 navegadores com 8% do event loop; com 50 navegadores com escopo, 43% (custo dominante: recorte por empresa → item 25)
+- [x] Otimização: lote compartilhado serializado uma vez só (46% → 43%)
 
 **Esforço estimado:** M
 **Impacto esperado:** Médio
@@ -572,6 +580,19 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 **Esforço estimado:** P
 **Impacto esperado:** Médio
+
+---
+
+#### 25. Recorte por escopo incremental
+
+**O que é:** Hoje, a cada lote de deltas, cada navegador com escopo de empresa recalcula a visibilidade percorrendo todas as chamadas do PBX (`ScopedView.visibleNow`). Recalcular só as chamadas/canais/bridges tocados no lote (e/ou compartilhar o cálculo entre navegadores com o mesmo escopo).
+
+**Por que fazer:** No teste de carga (item 21), com ~830 chamadas simultâneas, cada navegador com escopo custa ~0,7% do event loop; 50 deles levam o backend de 8% para 43%. Irrelevante para os clientes atuais; necessário para um PBX multi-empresa grande.
+
+**Cuidados:** a visibilidade muda com o tempo (transferências tiram/colocam a chamada no escopo); os testes de propriedade de `visibility.test.ts` e o `npm run load-test -- --scoped N` (consistência final) devem continuar passando.
+
+**Esforço estimado:** M
+**Impacto esperado:** Alto (só em escala)
 
 ---
 
@@ -628,3 +649,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | `eventfilter` aplicado ao usuário `astcall` no laboratório (+`EndpointDetail`); listas da sincronização verificadas com o filtro ativo                                                              |
 | 2026-10-17 | Claude Code | Item 15 implementado (reconciliação de canais/bridges e auditoria em arquivo)                                                                                                                       |
 | 2026-10-17 | Claude Code | Item 15 ativado e validado no laboratório (auditoria em arquivo; reconciliação sem falsos positivos)                                                                                                |
+| 2026-10-17 | Claude Code | Item 21 implementado (replay + carga simulada, `docs/CARGA.md`); novo item 25 (recorte por escopo incremental)                                                                                      |

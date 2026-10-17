@@ -152,14 +152,15 @@ class Session implements FeedSubscriber {
     return this.claims?.scope?.[serverId];
   }
 
-  send(msg: ServerMessage): void {
+  /** `json`: a mesma mensagem já serializada (lote compartilhado entre sessões). */
+  send(msg: ServerMessage, json?: string): void {
     if (this.ws.readyState !== WebSocket.OPEN) return;
     if (this.ws.bufferedAmount > this.hub.opts.maxBufferedBytes) {
       this.log.warn({ user: this.claims?.sub }, 'Cliente lento; desconectando');
       this.close(WS_CLOSE.TOO_SLOW, 'cliente não acompanha as atualizações');
       return;
     }
-    this.ws.send(JSON.stringify(msg));
+    this.ws.send(json ?? JSON.stringify(msg));
   }
 
   heartbeat(): void {
