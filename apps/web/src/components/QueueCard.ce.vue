@@ -16,6 +16,7 @@ import {
   UserPlus,
   Users,
 } from 'lucide-vue-next';
+import ActionMenu, { type MenuItem } from './ActionMenu.ce.vue';
 import { useNow } from '../composables/useNow';
 import { formatDuration, strategyLabel, waitTone, type QueueView } from '../lib/view';
 import { useMonitorStore } from '../stores/monitor';
@@ -61,6 +62,38 @@ function removeMember(m: Member): void {
     interface: m.interface,
     label: m.label,
   });
+}
+
+/**
+ * Ações do membro no menu "⋮", conforme as permissões. Membro fixo aparece com "Remover"
+ * desabilitado e a explicação — fica claro por que não dá para remover pelo painel.
+ */
+function memberActions(m: Member): MenuItem[] {
+  const items: MenuItem[] = [];
+  if (store.can('queue') && m.rank !== 3) {
+    items.push({
+      label: m.paused ? 'Retomar' : 'Pausar',
+      icon: m.paused ? Play : Pause,
+      run: () => togglePause(m),
+    });
+  }
+  if (store.can('queue_manage')) {
+    items.push({
+      label: 'Alterar penalidade',
+      hint: `atual: ${m.penalty}`,
+      icon: SlidersHorizontal,
+      run: () => editPenalty(m),
+    });
+    items.push({
+      label: 'Remover da fila',
+      icon: UserMinus,
+      tone: 'danger',
+      disabled: !m.dynamic,
+      hint: m.dynamic ? undefined : 'membro fixo: remova pelo cadastro de filas',
+      run: () => removeMember(m),
+    });
+  }
+  return items;
 }
 
 const now = useNow();
@@ -170,37 +203,6 @@ function ago(since: number | null): string {
               <PauseCircle v-if="m.paused" :size="12" aria-hidden="true" />
               {{ m.stateLabel }}
             </span>
-            <button
-              v-if="store.can('queue') && m.rank !== 3"
-              type="button"
-              class="m-pause"
-              :class="{ resume: m.paused }"
-              :title="m.paused ? `Retomar ${m.label}` : `Pausar ${m.label}`"
-              @click="togglePause(m)"
-            >
-              <Play v-if="m.paused" :size="12" aria-hidden="true" />
-              <Pause v-else :size="12" aria-hidden="true" />
-              {{ m.paused ? 'Retomar' : 'Pausar' }}
-            </button>
-            <template v-if="store.can('queue_manage')">
-              <button
-                type="button"
-                class="m-btn"
-                :title="`Penalidade de ${m.label}: ${m.penalty}`"
-                @click="editPenalty(m)"
-              >
-                <SlidersHorizontal :size="12" aria-hidden="true" /> {{ m.penalty }}
-              </button>
-              <button
-                v-if="m.dynamic"
-                type="button"
-                class="m-btn danger"
-                :title="`Remover ${m.label} desta fila`"
-                @click="removeMember(m)"
-              >
-                <UserMinus :size="12" aria-hidden="true" />
-              </button>
-            </template>
             <span class="m-info">
               <template v-if="m.paused">
                 {{ m.pausedReason || 'sem motivo' }} · {{ ago(m.pausedSince) }}
@@ -209,7 +211,13 @@ function ago(since: number | null): string {
                 {{ m.callsTaken }} atendida{{ m.callsTaken === 1 ? '' : 's' }} · última
                 {{ ago(m.lastCall) }}
               </template>
+              <template v-if="m.penalty > 0"> · penalidade {{ m.penalty }}</template>
             </span>
+            <ActionMenu
+              v-if="memberActions(m).length"
+              :items="memberActions(m)"
+              :label="`Ações de ${m.label}`"
+            />
           </li>
         </ul>
       </section>
@@ -307,20 +315,6 @@ function ago(since: number | null): string {
 .m-name {
   min-width: 4.5rem;
 }
-.m-pause {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.5rem;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border: 0;
-  border-radius: var(--ast-radius);
-  background: rgba(var(--ast-warning-rgb), 0.16);
-  color: var(--ast-warning);
-  cursor: pointer;
-}
 .q-header-actions {
   display: flex;
   align-items: center;
@@ -330,7 +324,7 @@ function ago(since: number | null): string {
   font-size: 0.6875rem;
   padding: 0.15rem 0.4rem;
 }
-/* Botões pequenos da linha do membro (penalidade, remover) e do cabeçalho (adicionar) */
+/* Botão "Adicionar" do cabeçalho */
 .m-btn {
   display: inline-flex;
   align-items: center;
@@ -351,21 +345,10 @@ function ago(since: number | null): string {
   background: rgba(var(--ast-primary-rgb), 0.16);
   color: var(--ast-primary);
 }
-.m-btn.danger {
-  background: rgba(var(--ast-danger-rgb), 0.16);
-  color: var(--ast-danger);
-}
-.m-btn:hover {
-  filter: brightness(0.95);
-}
-.m-pause.resume {
-  background: rgba(var(--ast-success-rgb), 0.16);
-  color: var(--ast-success);
-}
-.m-pause:hover {
-  filter: brightness(0.95);
-}
+/* A informação encolhe e quebra em duas linhas se precisar; nome, estado e menu ficam inteiros */
 .m-info {
+  flex: 1 1 0;
+  min-width: 5rem;
   margin-left: auto;
   font-size: 0.75rem;
   color: var(--ast-text-muted);
