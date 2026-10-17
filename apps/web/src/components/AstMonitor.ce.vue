@@ -19,10 +19,19 @@ import EndpointGrid from './EndpointGrid.ce.vue';
 import ActionDialog from './ActionDialog.ce.vue';
 import QueuePanel from './QueuePanel.ce.vue';
 import ToastHost from './ToastHost.ce.vue';
+import TvBoard from './TvBoard.ce.vue';
 
-const props = withDefaults(defineProps<{ wsUrl?: string; tokenUrl: string }>(), {
-  wsUrl: '/monitor-ws',
-});
+/**
+ * Atributos da tag:
+ * - ws-url / token-url: conexão (ver docs/INTEGRACAO_AZCALL.md);
+ * - mode: "panel" (padrão, painel de operação) ou "tv" (wallboard só leitura);
+ * - rotate: no modo TV, segundos entre as telas (padrão 15; "0" começa com o rodízio desligado).
+ */
+const props = withDefaults(
+  defineProps<{ wsUrl?: string; tokenUrl: string; mode?: string; rotate?: string }>(),
+  { wsUrl: '/monitor-ws', mode: 'panel', rotate: undefined },
+);
+const tv = computed(() => props.mode === 'tv');
 const emit = defineEmits<{ 'auth-required': [] }>();
 
 const store = useMonitorStore();
@@ -70,7 +79,10 @@ const stats = computed(() => {
 </script>
 
 <template>
-  <div class="ast-root">
+  <!-- Modo TV: outra tela, só leitura (sem diálogos de ação) -->
+  <TvBoard v-if="tv" :rotate="rotate" :badge="badge" />
+
+  <div v-else class="ast-root">
     <header class="ast-header">
       <div>
         <h4 class="ast-title">Monitor em tempo real</h4>

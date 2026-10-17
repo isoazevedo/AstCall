@@ -1,7 +1,7 @@
 # Integração AstCall × AzCall (modo integrado)
 
 > Contrato entre o AstCall (backend Node + Web Component) e o AzCall (PHP).
-> Versão do contrato: **1** · Última revisão: 2026-10-17
+> Versão do contrato: **1.1** · Última revisão: 2026-10-17
 
 O AzCall embute o painel AstCall numa página própria, autentica o usuário (sem segundo login)
 e emite o token. O AstCall só **valida** o token e aplica permissões e escopo que vêm nele.
@@ -33,6 +33,8 @@ Mudanças incompatíveis em qualquer um deles exigem nova versão deste document
 | ----------- | ----------- | ------------------------------------------------------ |
 | `token-url` | sim         | `POST` com o cookie da sessão → `{ token, expiresAt }` |
 | `ws-url`    | não         | WebSocket do AstCall (padrão `/monitor-ws`)            |
+| `mode`      | não         | `panel` (padrão) ou `tv` — modo TV, ver 1.4            |
+| `rotate`    | não         | modo TV: segundos do rodízio (padrão 15; `0` = parado) |
 
 | Evento DOM      | Quando                                                   | O que o AzCall faz      |
 | --------------- | -------------------------------------------------------- | ----------------------- |
@@ -76,6 +78,27 @@ Asterisk (`<queue_name>-<company_id>`). O AstCall então:
   pausa por fila da empresa.
 
 Alterações de permissão/escopo no AzCall valem na próxima renovação do token (≤ 10 min).
+
+### 1.4 Modo TV (wallboard)
+
+`<ast-monitor mode="tv">` troca o painel de operação por uma tela escura, só leitura, para
+deixar numa TV: telas **Filas** e **Chamadas** (chamadas em curso + mapa de ramais).
+
+- **Rodízio:** alterna as telas a cada `rotate` segundos (padrão 15, entre 5 e 600). O usuário
+  liga/desliga o rodízio e escolhe a tela na própria TV; a escolha fica no `localStorage` do
+  navegador (chave `astcall.tv`) e prevalece sobre o atributo. `rotate="0"` faz o rodízio começar
+  desligado.
+- **Tela cheia:** botão na própria tela (o navegador exige um clique).
+- **Paleta:** escura e fixa; personalizável por `--ast-tv-bg`, `--ast-tv-card-bg`, `--ast-tv-text`,
+  `--ast-tv-text-muted`, `--ast-tv-heading`, `--ast-tv-border`.
+- Mesmas permissões e escopo do painel (precisa só de `astcall.view`); nenhuma ação é oferecida.
+
+No AzCall: `GET /astcall/tv` (página sem o layout, `?rotate=N` opcional) e botão "Modo TV" em
+`/astcall`. Sessão: o PHP só envia o cookie de sessão no login, então ele venceria
+`SESSION_LIFETIME` (padrão 2 h) depois do login mesmo com a TV ligada. Por isso
+`POST /astcall/token` reenvia o cookie com novo vencimento a cada renovação (~9 min): enquanto
+o painel estiver aberto, a sessão continua válida. Se ela expirar mesmo assim (logout,
+reinício do servidor), a página volta ao login.
 
 ---
 
@@ -171,6 +194,7 @@ O navegador revalida o `ast-monitor.js` (ETag) a cada carga da página.
 
 ## Histórico de revisões
 
-| Data       | Autor       | O que mudou                                     |
-| ---------- | ----------- | ----------------------------------------------- |
-| 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório |
+| Data       | Autor       | O que mudou                                                                     |
+| ---------- | ----------- | ------------------------------------------------------------------------------- |
+| 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório                                 |
+| 2026-10-17 | Claude Code | Versão 1.1: atributos opcionais `mode` e `rotate` (modo TV), rota `/astcall/tv` |

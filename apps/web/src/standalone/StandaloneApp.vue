@@ -3,16 +3,21 @@
  * Casca da SPA standalone. Três situações:
  * - "checking": verificando se já existe sessão (cookie de renovação);
  * - "login": mostra o formulário;
- * - "app": mostra a barra superior + o <ast-monitor>.
+ * - "app": mostra a barra superior + o <ast-monitor> (ou só o <ast-monitor> no modo TV).
  *
  * Conceito: `v-if` / `v-else-if` / `v-else` mostram um bloco ou outro conforme a condição.
  */
 import { onMounted, ref } from 'vue';
-import { LogOut } from 'lucide-vue-next';
+import { LogOut, Tv } from 'lucide-vue-next';
 import type { TokenResponse } from '@astcall/shared';
 import LoginView from './LoginView.vue';
 
 const view = ref<'checking' | 'login' | 'app'>('checking');
+
+/** Endereço com "?tv" abre o modo TV (wallboard), sem a barra superior. "?tv&rotate=30" muda o intervalo. */
+const params = new URLSearchParams(window.location.search);
+const tv = params.has('tv');
+const rotate = params.get('rotate') ?? undefined;
 const userName = ref('');
 
 /** Lê o nome de exibição do token (só para mostrar; quem valida é o backend). */
@@ -59,11 +64,25 @@ async function logout(): Promise<void> {
 
   <LoginView v-else-if="view === 'login'" @logged-in="onLoggedIn" />
 
+  <!-- Modo TV: só o componente, ocupando a tela toda -->
+  <ast-monitor
+    v-else-if="tv"
+    ws-url="/monitor-ws"
+    token-url="/auth/refresh"
+    mode="tv"
+    :rotate="rotate"
+    @auth-required="logout"
+  />
+
   <div v-else class="layout">
     <nav class="navbar">
       <div class="brand"><span class="logo">A</span> AstCall</div>
       <div class="user">
         <span>{{ userName }}</span>
+        <!-- Abre o modo TV numa nova aba (para levar à TV/monitor da equipe) -->
+        <a href="/?tv" target="_blank" class="btn-ghost btn-tv" title="Abrir o modo TV">
+          <Tv :size="18" aria-hidden="true" /> Modo TV
+        </a>
         <button type="button" class="btn-ghost" title="Sair" @click="logout">
           <LogOut :size="18" aria-hidden="true" /> Sair
         </button>
@@ -141,6 +160,13 @@ async function logout(): Promise<void> {
 .btn-ghost:hover {
   background: rgba(var(--bs-danger-rgb), 0.12);
   color: var(--bs-danger);
+}
+.btn-ghost.btn-tv {
+  text-decoration: none;
+}
+.btn-ghost.btn-tv:hover {
+  background: rgba(var(--bs-primary-rgb), 0.12);
+  color: var(--bs-primary);
 }
 .content {
   padding: 1.5rem 1.625rem 2rem;
