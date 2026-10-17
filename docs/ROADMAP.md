@@ -37,6 +37,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 18  | **Membros de fila (item 13)**           | Adicionar membro dinâmico, remover (só dinâmico) e alterar penalidade pelo painel, com a permissão nova `queue_manage` e escopo por empresa; membros fixos (cadastro do AzCall) identificados na tela. Ações em menu "⋮" (também nas chamadas). Validado no laboratório. Conferências fora (item 10 pausado).                                                                                                                                                                                                                | ✅ Produção    |
 | 19  | **Reconciliação e auditoria (item 15)** | Canais e bridges reconciliados a cada 60 s (fantasmas removidos, perdidos criados, sem sobrescrever o que existe); auditoria das ações em arquivo JSON por linha com `npm run audit` e logrotate.                                                                                                                                                                                                                                                                                                                            | ✅ Produção    |
 | 20  | **Replay e carga (item 21)**            | Replay das 12 gravações com verificação snapshot + deltas = estado do servidor; `npm run load-test` com PBX e navegadores simulados; medidas em `docs/CARGA.md` (2000 ramais/~830 chamadas/150 navegadores: 8% do event loop; recorte por empresa é o custo dominante → item 25).                                                                                                                                                                                                                                            | ✅ Produção    |
+| 21  | **Widgets (item 18)**                   | `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` no mesmo bundle, com uma conexão por página, filtros por atributo e `readonly`; demonstração em `/?widgets`; contrato 1.3.                                                                                                                                                                                                                                                                                                                                                   | ✅ Produção    |
 
 ---
 
@@ -487,11 +488,21 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 18. Widgets separados (`<ast-ramais>`, `<ast-filas>` etc.)
+#### 18. Widgets separados (`<ast-ramais>`, `<ast-filas>` etc.) — ✅
 
-**O que é:** Expor painéis individuais como Web Components próprios, reaproveitando a mesma conexão.
+**O que é:** Expor partes do painel como Web Components próprios, reaproveitando a mesma conexão.
 
 **Por que fazer:** Permite ao AzCall montar telas sob medida (ex.: só filas em um dashboard).
+
+**Escopo:**
+
+- [x] `<ast-filas>` (`queues="a,b"`), `<ast-ramais>` (`endpoints="..."`), `<ast-chamadas>` no mesmo `ast-monitor.js`
+- [x] Um único Pinia e um único WebSocket por página (contagem de uso: abre no primeiro elemento, fecha no último)
+- [x] Diálogos e avisos aparecem só no elemento de onde a ação partiu
+- [x] Atributo `readonly` (sem ações) em todos os elementos, inclusive `<ast-monitor>`
+- [x] Estilos base em `src/styles/base.css`, compartilhados por todos os elementos
+- [x] Demonstração no standalone: `/?widgets`; contrato de integração 1.3
+- [ ] Uso no AzCall — decisão de 2026-10-17: só deixar pronto e documentado por enquanto
 
 **Esforço estimado:** M
 **Impacto esperado:** Médio
@@ -650,3 +661,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Item 15 implementado (reconciliação de canais/bridges e auditoria em arquivo)                                                                                                                       |
 | 2026-10-17 | Claude Code | Item 15 ativado e validado no laboratório (auditoria em arquivo; reconciliação sem falsos positivos)                                                                                                |
 | 2026-10-17 | Claude Code | Item 21 implementado (replay + carga simulada, `docs/CARGA.md`); novo item 25 (recorte por escopo incremental)                                                                                      |
+| 2026-10-17 | Claude Code | Item 18 implementado (widgets com conexão compartilhada e `readonly`); uso no AzCall fica para depois                                                                                               |

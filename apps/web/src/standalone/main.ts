@@ -3,7 +3,7 @@
  * `createApp` cria a aplicação Vue e `mount` a coloca no #app do index.html.
  */
 import { createApp } from 'vue';
-import '../element'; // registra <ast-monitor>
+import '../element'; // registra <ast-monitor>, <ast-filas>, <ast-ramais> e <ast-chamadas>
 import './theme.css';
 import StandaloneApp from './StandaloneApp.vue';
 

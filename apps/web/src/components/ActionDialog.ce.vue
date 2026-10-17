@@ -9,9 +9,12 @@
  */
 import { computed, nextTick, ref, watch } from 'vue';
 import { DIAL_TARGET, PENALTY_MAX, type SpyMode } from '@astcall/shared';
+import { useWidget } from '../composables/useWidget';
 import { useMonitorStore } from '../stores/monitor';
 
 const store = useMonitorStore();
+/** Com vários elementos na página, só o elemento de onde a ação partiu desenha o diálogo. */
+const { owner } = useWidget();
 
 const number = ref('');
 const reason = ref('');
@@ -254,7 +257,11 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="store.dialog && view" class="dlg-backdrop" @click.self="store.closeDialog()">
+  <div
+    v-if="store.dialog && store.dialog.owner === owner && view"
+    class="dlg-backdrop"
+    @click.self="store.closeDialog()"
+  >
     <form
       class="dlg ast-card"
       role="dialog"

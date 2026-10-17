@@ -1,7 +1,7 @@
 # Integração AstCall × AzCall (modo integrado)
 
 > Contrato entre o AstCall (backend Node + Web Component) e o AzCall (PHP).
-> Versão do contrato: **1.2** · Última revisão: 2026-10-17
+> Versão do contrato: **1.3** · Última revisão: 2026-10-17
 
 O AzCall embute o painel AstCall numa página própria, autentica o usuário (sem segundo login)
 e emite o token. O AstCall só **valida** o token e aplica permissões e escopo que vêm nele.
@@ -105,6 +105,39 @@ No AzCall: `GET /astcall/tv` (página sem o layout, `?rotate=N` opcional) e bot�
 o painel estiver aberto, a sessão continua válida. Se ela expirar mesmo assim (logout,
 reinício do servidor), a página volta ao login.
 
+### 1.5 Widgets (`<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>`)
+
+Partes do painel como elementos próprios, para montar telas sob medida (ex.: um dashboard).
+Vêm no mesmo `ast-monitor.js` — não há script novo.
+
+```html
+<script type="module" src="/astcall/static/ast-monitor.js"></script>
+<ast-filas ws-url="/astcall/monitor-ws" token-url="/astcall/token" queues="suporte-1"></ast-filas>
+<ast-chamadas ws-url="/astcall/monitor-ws" token-url="/astcall/token"></ast-chamadas>
+<ast-ramais ws-url="/astcall/monitor-ws" token-url="/astcall/token" readonly></ast-ramais>
+```
+
+| Tag              | Mostra                                  | Atributos próprios (opcionais)                     |
+| ---------------- | --------------------------------------- | -------------------------------------------------- |
+| `<ast-filas>`    | cards de fila (membros, espera, ações)  | `queues="a,b"`: só essas filas (nomes no Asterisk) |
+| `<ast-ramais>`   | mapa de ramais com filtros por situação | `endpoints="9001,9002"`: só esses ramais           |
+| `<ast-chamadas>` | chamadas em andamento                   | —                                                  |
+
+- **Comuns a todos (inclusive `<ast-monitor>`):** `ws-url`, `token-url`, `readonly` (sem ações:
+  só visualização) e o evento `auth-required`.
+- **Uma conexão por página:** todos os elementos da página compartilham o mesmo estado e o mesmo
+  WebSocket (vale o `ws-url`/`token-url` do primeiro a entrar). A conexão fecha quando o último
+  elemento sai da página.
+- **Ações:** seguem as permissões do token, como no painel; o diálogo e o aviso aparecem no
+  elemento de onde a ação partiu. Com `readonly`, nenhuma ação aparece.
+- **Escopo da empresa:** igual ao painel. Os filtros `queues`/`endpoints` só **restringem** o que o
+  usuário já pode ver — nunca dão acesso a mais.
+- **Visual:** sem cabeçalho próprio (título e layout ficam com a página). No modo escuro, defina
+  `--ast-card-bg` também nessas tags (ex.: `.dark-style ast-filas, .dark-style ast-ramais, ...`).
+- **Servidores:** com mais de um servidor no token, os widgets mostram o primeiro.
+
+Demonstração no modo standalone: `/?widgets`.
+
 ---
 
 ## 2. Instalação (servidor do AzCall)
@@ -204,3 +237,4 @@ O navegador revalida o `ast-monitor.js` (ETag) a cada carga da página.
 | 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório                                              |
 | 2026-10-17 | Claude Code | Versão 1.1: atributos opcionais `mode` e `rotate` (modo TV), rota `/astcall/tv`              |
 | 2026-10-17 | Claude Code | Versão 1.2: permissão `queue_manage` (migration 162); permissões desconhecidas são ignoradas |
+| 2026-10-17 | Claude Code | Versão 1.3: widgets `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` e atributo `readonly`    |

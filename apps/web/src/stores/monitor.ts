@@ -27,13 +27,15 @@ export const useMonitorStore = defineStore('monitor', () => {
   const servers = reactive<Record<string, ServerState>>({});
   const activeServerId = ref<string | null>(null);
   let conn: MonitorConnection | undefined;
+  /** Elementos da página usando a conexão (ela é compartilhada; fecha quando o último sai). */
+  let users = 0;
 
   /** Avisos rápidos no canto da tela (resultado das ações). */
   const toasts = ref<Toast[]>([]);
   let toastSeq = 0;
 
   /** Diálogo de ação aberto (desligar, transferir, ligar, pausar...) ou null. */
-  const dialog = ref<ActionDialog | null>(null);
+  const dialog = ref<(ActionDialog & { owner: string }) | null>(null);
 
   // ---------------------------------------------------------------- derivados
   const serverList = computed(() => Object.values(servers));
@@ -81,8 +83,14 @@ export const useMonitorStore = defineStore('monitor', () => {
   }
 
   // ---------------------------------------------------------------- ações
+  /**
+   * Um elemento (<ast-monitor>, <ast-filas>...) passa a usar a conexão. Todos os elementos da
+   * página compartilham o mesmo store e o mesmo WebSocket: só o primeiro abre a conexão (os
+   * demais reaproveitam, mesmo que informem outros endereços — vale o do primeiro).
+   */
   function connect(wsUrl: string, tokenUrl: string): void {
-    conn?.stop();
+    users++;
+    if (conn) return;
     conn = new MonitorConnection({
       wsUrl,
       tokenUrl,
@@ -92,7 +100,10 @@ export const useMonitorStore = defineStore('monitor', () => {
     conn.start();
   }
 
+  /** O elemento saiu da página; o último a sair fecha a conexão. */
   function disconnect(): void {
+    users = Math.max(0, users - 1);
+    if (users > 0) return;
     conn?.stop();
     conn = undefined;
   }
@@ -113,18 +124,20 @@ export const useMonitorStore = defineStore('monitor', () => {
             ok: false,
             error: 'sem conexão',
           } as ActionResultMessage);
-    if (result.ok) notify('success', successText);
+    // o aviso aparece no elemento de onde a ação partiu (o dono do diálogo)
+    if (result.ok) notify('success', successText, dialog.value?.owner);
     return result;
   }
 
-  function notify(tone: Toast['tone'], text: string): void {
+  function notify(tone: Toast['tone'], text: string, owner = DEFAULT_OWNER): void {
     const id = ++toastSeq;
-    toasts.value.push({ id, tone, text });
+    toasts.value.push({ id, tone, text, owner });
     setTimeout(() => (toasts.value = toasts.value.filter((t) => t.id !== id)), 4000);
   }
 
-  function openDialog(d: ActionDialog): void {
-    dialog.value = d;
+  /** Abre um diálogo de ação no elemento `owner` (só ele desenha o diálogo). */
+  function openDialog(d: ActionDialog, owner = DEFAULT_OWNER): void {
+    dialog.value = { ...d, owner };
   }
 
   function closeDialog(): void {
@@ -201,10 +214,15 @@ export const useMonitorStore = defineStore('monitor', () => {
   };
 });
 
+/** Dono padrão de diálogos e avisos (quando o componente não está dentro de um elemento). */
+export const DEFAULT_OWNER = 'default';
+
 export interface Toast {
   id: number;
   tone: 'success' | 'danger' | 'info';
   text: string;
+  /** Elemento da página que mostra o aviso. */
+  owner: string;
 }
 
 /** Qual diálogo de ação está aberto e sobre o quê. */

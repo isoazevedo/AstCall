@@ -1,13 +1,20 @@
 <script setup lang="ts">
-/** Avisos rápidos (resultado das ações) no canto inferior direito. */
+/**
+ * Avisos rápidos (resultado das ações) no canto inferior direito. Com vários elementos na
+ * página, cada um mostra só os avisos das ações que partiram dele.
+ */
+import { computed } from 'vue';
+import { useWidget } from '../composables/useWidget';
 import { useMonitorStore } from '../stores/monitor';
 
 const store = useMonitorStore();
+const { owner } = useWidget();
+const mine = computed(() => store.toasts.filter((t) => t.owner === owner));
 </script>
 
 <template>
   <div class="toasts" aria-live="polite">
-    <div v-for="t in store.toasts" :key="t.id" class="toast" :class="`tone-${t.tone}`">
+    <div v-for="t in mine" :key="t.id" class="toast" :class="`tone-${t.tone}`">
       {{ t.text }}
     </div>
   </div>

@@ -66,7 +66,7 @@ reference/       # MonAst original — apenas referência, fora do git
   ```
 - Prefixo de tags neutro (`ast-`), pois o produto também vive sem o AzCall.
 - Usar **Shadow DOM** para isolar o CSS; permitir personalização visual por **variáveis CSS** (cores, fontes).
-- Projetar pensando em widgets reutilizáveis no futuro (ex.: `<ast-ramais>`, `<ast-filas>`).
+- Widgets reutilizáveis no mesmo bundle: `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` (ver `docs/INTEGRACAO_AZCALL.md`, seção 1.5). Todos os elementos de uma página compartilham um único Pinia e uma única conexão WebSocket.
 - A SPA standalone (`npm run dev`) é uma casca fina: tela de login → monta o mesmo componente.
 - Cuidados conhecidos com custom elements no Vue:
   - Instalar o Pinia pela opção `configureApp` do `defineCustomElement` (Vue 3.5+).

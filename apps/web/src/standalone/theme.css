@@ -40,7 +40,10 @@
     --app-card-shadow: 0 0.125rem 0.875rem rgba(0, 0, 0, 0.16);
     color-scheme: dark;
   }
-  ast-monitor {
+  ast-monitor,
+  ast-filas,
+  ast-ramais,
+  ast-chamadas {
     --ast-card-bg: var(--app-card-bg);
     --ast-card-shadow: var(--app-card-shadow);
   }

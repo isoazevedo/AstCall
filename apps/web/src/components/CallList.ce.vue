@@ -20,42 +20,38 @@ import {
 import { useNow } from '../composables/useNow';
 import ActionMenu, { type MenuItem } from './ActionMenu.ce.vue';
 import { formatDuration, type CallView, type Party } from '../lib/view';
-import { useMonitorStore } from '../stores/monitor';
+import { useWidget } from '../composables/useWidget';
 
 defineProps<{ calls: CallView[]; loading: boolean }>();
 
-const store = useMonitorStore();
+const { can, open } = useWidget();
 const partyLabel = (p: Party) => (p.name ? `${p.num} (${p.name})` : p.num);
 
 /** Opções do menu de um participante, conforme permissões e situação da chamada. */
 function partyActions(call: CallView, p: Party): MenuItem[] {
   const target = { uniqueid: p.uniqueid, label: partyLabel(p) };
   const items: MenuItem[] = [];
-  if (
-    store.can('spy') &&
-    !call.spyTarget &&
-    (call.status === 'talking' || call.status === 'held')
-  ) {
+  if (can('spy') && !call.spyTarget && (call.status === 'talking' || call.status === 'held')) {
     items.push({
       label: `Escutar ${p.num}`,
       hint: 'ouvir, sussurrar ou intervir',
       icon: Headphones,
-      run: () => store.openDialog({ kind: 'spy', ...target }),
+      run: () => open({ kind: 'spy', ...target }),
     });
   }
-  if (store.can('transfer') && call.status === 'talking') {
+  if (can('transfer') && call.status === 'talking') {
     items.push({
       label: `Transferir ${p.num}`,
       icon: PhoneForwarded,
-      run: () => store.openDialog({ kind: 'transfer', ...target }),
+      run: () => open({ kind: 'transfer', ...target }),
     });
   }
-  if (store.can('hangup')) {
+  if (can('hangup')) {
     items.push({
       label: `Desligar ${p.num}`,
       icon: PhoneOff,
       tone: 'danger',
-      run: () => store.openDialog({ kind: 'hangup', ...target }),
+      run: () => open({ kind: 'hangup', ...target }),
     });
   }
   return items;

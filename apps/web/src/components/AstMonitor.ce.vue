@@ -11,8 +11,9 @@
  * - computed: valor derivado, recalculado só quando o que ele usa muda.
  * - watch: reage a mudanças de um valor.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { LayoutDashboard, ListOrdered, Radio, Wifi, WifiOff } from 'lucide-vue-next';
+import { useWidgetRoot } from '../composables/useWidget';
 import { useMonitorStore } from '../stores/monitor';
 import CallList from './CallList.ce.vue';
 import EndpointGrid from './EndpointGrid.ce.vue';
@@ -25,27 +26,27 @@ import TvBoard from './TvBoard.ce.vue';
  * Atributos da tag:
  * - ws-url / token-url: conexão (ver docs/INTEGRACAO_AZCALL.md);
  * - mode: "panel" (padrão, painel de operação) ou "tv" (wallboard só leitura);
- * - rotate: no modo TV, segundos entre as telas (padrão 15; "0" começa com o rodízio desligado).
+ * - rotate: no modo TV, segundos entre as telas (padrão 15; "0" começa com o rodízio desligado);
+ * - readonly: esconde todas as ações (só visualização).
  */
 const props = withDefaults(
-  defineProps<{ wsUrl?: string; tokenUrl: string; mode?: string; rotate?: string }>(),
-  { wsUrl: '/monitor-ws', mode: 'panel', rotate: undefined },
+  defineProps<{
+    wsUrl?: string;
+    tokenUrl: string;
+    mode?: string;
+    rotate?: string;
+    readonly?: boolean;
+  }>(),
+  { wsUrl: '/monitor-ws', mode: 'panel', rotate: undefined, readonly: false },
 );
 const tv = computed(() => props.mode === 'tv');
 const emit = defineEmits<{ 'auth-required': [] }>();
 
 const store = useMonitorStore();
 
-onMounted(() => store.connect(props.wsUrl, props.tokenUrl));
-onUnmounted(() => store.disconnect());
-
-// Sessão expirou: avisa a página que hospeda o componente (SPA volta ao login, AzCall redireciona)
-watch(
-  () => store.connection,
-  (state) => {
-    if (state === 'auth-required') emit('auth-required');
-  },
-);
+// Conexão compartilhada com os outros elementos da página. Sessão expirada: avisa a página
+// (a SPA volta ao login, o AzCall redireciona).
+useWidgetRoot(props, () => emit('auth-required'));
 
 /** Selo de conexão no canto superior. */
 const badge = computed(() => {
@@ -172,250 +173,4 @@ const stats = computed(() => {
   </div>
 </template>
 
-<style>
-/*
- * Tokens visuais. Cada um usa a variável do tema Frest/Bootstrap do AzCall (--bs-*) quando
- * existir na página — variáveis CSS atravessam o Shadow DOM — e cai no valor do Frest
- * quando o componente roda fora do AzCall. Para personalizar, defina --ast-* na tag.
- */
-:host {
-  --ast-primary: var(--bs-primary, #5a8dee);
-  --ast-primary-rgb: var(--bs-primary-rgb, 90, 141, 238);
-  --ast-success: var(--bs-success, #39da8a);
-  --ast-success-rgb: var(--bs-success-rgb, 57, 218, 138);
-  --ast-warning: var(--bs-warning, #fdac41);
-  --ast-warning-rgb: var(--bs-warning-rgb, 253, 172, 65);
-  --ast-danger: var(--bs-danger, #ff5b5c);
-  --ast-danger-rgb: var(--bs-danger-rgb, 255, 91, 92);
-  --ast-info: var(--bs-info, #00cfdd);
-  --ast-info-rgb: var(--bs-info-rgb, 0, 207, 221);
-  --ast-secondary: var(--bs-secondary, #69809a);
-  --ast-secondary-rgb: var(--bs-secondary-rgb, 105, 128, 154);
-
-  --ast-text: var(--bs-body-color, #677788);
-  --ast-text-muted: var(--bs-secondary-color, rgba(103, 119, 136, 0.75));
-  --ast-heading: var(--bs-heading-color, #516377);
-  --ast-border: var(--bs-border-color, #d4d8dd);
-  --ast-card-bg: #fff; /* o tema não expõe a cor do card na raiz: ajuste no modo escuro */
-  --ast-card-radius: 1.3125rem;
-  --ast-radius: var(--bs-border-radius, 0.25rem);
-  --ast-card-shadow: 0 2px 14px rgba(38, 60, 85, 0.16);
-  --ast-font: var(
-    --bs-body-font-family,
-    'IBM Plex Sans',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif
-  );
-  --ast-font-heading: 'Rubik', var(--ast-font);
-
-  display: block;
-  font-family: var(--ast-font);
-  font-size: 0.9375rem;
-  color: var(--ast-text);
-  line-height: 1.47;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-.ast-root {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.ast-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.ast-title {
-  margin: 0 0 0.25rem;
-  font-family: var(--ast-font-heading);
-  font-weight: 500;
-  font-size: 1.375rem;
-  line-height: 1.1;
-  color: var(--ast-heading);
-}
-.ast-subtitle {
-  margin: 0;
-  color: var(--ast-text-muted);
-}
-
-/* Cards no estilo Frest: sem borda, cantos arredondados, sombra suave */
-.ast-card {
-  background: var(--ast-card-bg);
-  border-radius: var(--ast-card-radius);
-  box-shadow: var(--ast-card-shadow);
-}
-.ast-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1.375rem 1.375rem 0;
-}
-.ast-card-title {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--ast-font-heading);
-  font-weight: 500;
-  font-size: 1.125rem;
-  color: var(--ast-heading);
-}
-.ast-card-body {
-  padding: 1.375rem;
-}
-.ast-empty {
-  padding: 2rem 1rem;
-  text-align: center;
-  color: var(--ast-text-muted);
-}
-
-/* "Badge label" do Frest: fundo claro tingido + texto na cor */
-.ast-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: var(--ast-radius);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-}
-.tone-success {
-  background: rgba(var(--ast-success-rgb), 0.16);
-  color: var(--ast-success);
-}
-.tone-primary {
-  background: rgba(var(--ast-primary-rgb), 0.16);
-  color: var(--ast-primary);
-}
-.tone-warning {
-  background: rgba(var(--ast-warning-rgb), 0.16);
-  color: var(--ast-warning);
-}
-.tone-danger {
-  background: rgba(var(--ast-danger-rgb), 0.16);
-  color: var(--ast-danger);
-}
-.tone-info {
-  background: rgba(var(--ast-info-rgb), 0.16);
-  color: var(--ast-info);
-}
-.tone-secondary {
-  background: rgba(var(--ast-secondary-rgb), 0.16);
-  color: var(--ast-secondary);
-}
-.tone-text-success {
-  color: var(--ast-success);
-}
-.tone-text-primary {
-  color: var(--ast-primary);
-}
-.tone-text-warning {
-  color: var(--ast-warning);
-}
-
-.ast-tabs {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.ast-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font: inherit;
-  padding: 0.45rem 1rem;
-  border: 0;
-  border-radius: var(--ast-radius);
-  background: transparent;
-  color: var(--ast-text);
-  cursor: pointer;
-}
-.ast-tab:hover {
-  background: rgba(var(--ast-primary-rgb), 0.08);
-}
-.tab-count {
-  padding: 0 0.4rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  background: rgba(var(--ast-secondary-rgb), 0.16);
-}
-.ast-tab.active .tab-count {
-  background: rgba(255, 255, 255, 0.25);
-}
-.ast-tab.active {
-  background: var(--ast-primary);
-  color: #fff;
-  box-shadow: 0 2px 4px rgba(var(--ast-primary-rgb), 0.4);
-}
-
-.ast-alert {
-  padding: 0.75rem 1rem;
-  border-radius: var(--ast-radius);
-  background: rgba(var(--ast-warning-rgb), 0.16);
-  color: var(--ast-warning);
-  font-weight: 500;
-}
-
-.ast-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 1.5rem;
-}
-.ast-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.25rem 1rem;
-  text-align: center;
-}
-.ast-stat-value {
-  font-family: var(--ast-font-heading);
-  font-size: 1.75rem;
-  font-weight: 500;
-  color: var(--ast-heading);
-}
-.ast-stat-label {
-  color: var(--ast-text-muted);
-  font-size: 0.8125rem;
-}
-
-.ast-input {
-  font: inherit;
-  padding: 0.45rem 0.85rem;
-  border: 1px solid var(--ast-border);
-  border-radius: var(--ast-radius);
-  background: transparent;
-  color: var(--ast-text);
-  min-width: 12rem;
-}
-.ast-input:focus {
-  outline: none;
-  border-color: var(--ast-primary);
-  box-shadow: 0 0 0.25rem 0.05rem rgba(var(--ast-primary-rgb), 0.1);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .ast-pulse {
-    animation: ast-pulse 1.4s ease-in-out infinite;
-  }
-}
-@keyframes ast-pulse {
-  50% {
-    opacity: 0.45;
-  }
-}
-</style>
+<style src="../styles/base.css"></style>

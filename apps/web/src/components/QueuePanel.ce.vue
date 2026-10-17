@@ -4,7 +4,10 @@ import { computed, ref } from 'vue';
 import type { QueueView } from '../lib/view';
 import QueueCard from './QueueCard.ce.vue';
 
-const props = defineProps<{ queues: QueueView[]; loading: boolean }>();
+const props = withDefaults(
+  defineProps<{ queues: QueueView[]; loading: boolean; searchable?: boolean }>(),
+  { searchable: true },
+);
 
 const search = ref('');
 const visible = computed(() => {
@@ -15,7 +18,7 @@ const visible = computed(() => {
 
 <template>
   <div class="q-panel">
-    <div class="q-toolbar">
+    <div v-if="searchable" class="q-toolbar">
       <input
         v-model="search"
         class="ast-input"

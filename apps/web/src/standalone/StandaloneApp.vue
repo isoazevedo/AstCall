@@ -17,6 +17,8 @@ const view = ref<'checking' | 'login' | 'app'>('checking');
 /** Endereço com "?tv" abre o modo TV (wallboard), sem a barra superior. "?tv&rotate=30" muda o intervalo. */
 const params = new URLSearchParams(window.location.search);
 const tv = params.has('tv');
+/** "?widgets": página de demonstração dos widgets (<ast-filas>, <ast-chamadas>, <ast-ramais>). */
+const widgets = params.has('widgets');
 const rotate = params.get('rotate') ?? undefined;
 const userName = ref('');
 
@@ -88,7 +90,35 @@ async function logout(): Promise<void> {
         </button>
       </div>
     </nav>
-    <main class="content">
+    <!--
+      Demonstração dos widgets: exemplo de tela montada sob medida. Os três elementos
+      compartilham uma única conexão WebSocket. Os ramais estão em modo só leitura.
+    -->
+    <main v-if="widgets" class="content demo">
+      <section>
+        <h5 class="demo-title">&lt;ast-chamadas&gt;</h5>
+        <ast-chamadas ws-url="/monitor-ws" token-url="/auth/refresh" @auth-required="logout" />
+      </section>
+      <section>
+        <h5 class="demo-title">&lt;ast-filas queues="suporte-default"&gt;</h5>
+        <ast-filas
+          ws-url="/monitor-ws"
+          token-url="/auth/refresh"
+          queues="suporte-default"
+          @auth-required="logout"
+        />
+      </section>
+      <section class="demo-wide">
+        <h5 class="demo-title">&lt;ast-ramais readonly&gt;</h5>
+        <ast-ramais
+          ws-url="/monitor-ws"
+          token-url="/auth/refresh"
+          readonly
+          @auth-required="logout"
+        />
+      </section>
+    </main>
+    <main v-else class="content">
       <!-- O mesmo Web Component usado no AzCall; o token vem do /auth/refresh (cookie) -->
       <ast-monitor ws-url="/monitor-ws" token-url="/auth/refresh" @auth-required="logout" />
     </main>
@@ -167,6 +197,21 @@ async function logout(): Promise<void> {
 .btn-ghost.btn-tv:hover {
   background: rgba(var(--bs-primary-rgb), 0.12);
   color: var(--bs-primary);
+}
+.demo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+.demo-wide {
+  grid-column: 1 / -1;
+}
+.demo-title {
+  margin: 0 0 0.6rem;
+  font-family: ui-monospace, monospace;
+  font-weight: 500;
+  color: var(--bs-secondary-color);
 }
 .content {
   padding: 1.5rem 1.625rem 2rem;

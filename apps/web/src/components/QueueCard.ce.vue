@@ -19,13 +19,13 @@ import {
 import ActionMenu, { type MenuItem } from './ActionMenu.ce.vue';
 import { useNow } from '../composables/useNow';
 import { formatDuration, strategyLabel, waitTone, type QueueView } from '../lib/view';
-import { useMonitorStore } from '../stores/monitor';
+import { useWidget } from '../composables/useWidget';
 
 const props = defineProps<{ queue: QueueView }>();
-const store = useMonitorStore();
+const { can, open } = useWidget();
 
 function togglePause(m: Member): void {
-  store.openDialog({
+  open({
     kind: 'pause',
     queue: props.queue.name,
     interface: m.interface,
@@ -37,7 +37,7 @@ function togglePause(m: Member): void {
 type Member = QueueView['members'][number];
 
 function addMember(): void {
-  store.openDialog({
+  open({
     kind: 'queueAdd',
     queue: props.queue.name,
     members: props.queue.members.map((m) => m.endpointId).filter((e): e is string => !!e),
@@ -45,7 +45,7 @@ function addMember(): void {
 }
 
 function editPenalty(m: Member): void {
-  store.openDialog({
+  open({
     kind: 'penalty',
     queue: props.queue.name,
     interface: m.interface,
@@ -56,7 +56,7 @@ function editPenalty(m: Member): void {
 }
 
 function removeMember(m: Member): void {
-  store.openDialog({
+  open({
     kind: 'queueRemove',
     queue: props.queue.name,
     interface: m.interface,
@@ -70,14 +70,14 @@ function removeMember(m: Member): void {
  */
 function memberActions(m: Member): MenuItem[] {
   const items: MenuItem[] = [];
-  if (store.can('queue') && m.rank !== 3) {
+  if (can('queue') && m.rank !== 3) {
     items.push({
       label: m.paused ? 'Retomar' : 'Pausar',
       icon: m.paused ? Play : Pause,
       run: () => togglePause(m),
     });
   }
-  if (store.can('queue_manage')) {
+  if (can('queue_manage')) {
     items.push({
       label: 'Alterar penalidade',
       hint: `atual: ${m.penalty}`,
@@ -119,7 +119,7 @@ function ago(since: number | null): string {
       <div class="q-header-actions">
         <span class="ast-badge tone-secondary">{{ strategyLabel(queue.strategy) }}</span>
         <button
-          v-if="store.can('queue_manage')"
+          v-if="can('queue_manage')"
           type="button"
           class="m-btn add"
           title="Adicionar um ramal a esta fila"

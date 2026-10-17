@@ -2,10 +2,10 @@
 /** Cartão de um ramal: número, situação (cor do tema), aparelho e canais ativos. */
 import { PhoneOutgoing } from 'lucide-vue-next';
 import type { EndpointView } from '../lib/view';
-import { useMonitorStore } from '../stores/monitor';
+import { useWidget } from '../composables/useWidget';
 
 defineProps<{ endpoint: EndpointView }>();
-const store = useMonitorStore();
+const { can, open } = useWidget();
 </script>
 
 <template>
@@ -26,11 +26,11 @@ const store = useMonitorStore();
       {{ endpoint.activeChannels }} {{ endpoint.activeChannels === 1 ? 'canal' : 'canais' }}
     </div>
     <button
-      v-if="store.can('originate') && endpoint.group !== 'offline'"
+      v-if="can('originate') && endpoint.group !== 'offline'"
       type="button"
       class="ep-call"
       :title="`Ligar a partir do ramal ${endpoint.id}`"
-      @click="store.openDialog({ kind: 'originate', from: endpoint.id })"
+      @click="open({ kind: 'originate', from: endpoint.id })"
     >
       <PhoneOutgoing :size="13" aria-hidden="true" /> Ligar
     </button>
