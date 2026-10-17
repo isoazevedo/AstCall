@@ -193,6 +193,11 @@ export interface QueueMemberView {
   inCall: boolean;
   callsTaken: number;
   lastCall: number | null;
+  penalty: number;
+  /** Membro dinâmico (QueueAdd/login de agente). Os fixos vêm do cadastro (queues.conf). */
+  dynamic: boolean;
+  /** Ramal do membro, quando é um PJSIP identificável. */
+  endpointId: string | null;
   /** Ordem de exibição: disponíveis, em atendimento, pausados, indisponíveis. */
   rank: number;
 }
@@ -230,6 +235,9 @@ function memberView(m: QueueMember): QueueMemberView {
     inCall: m.inCall,
     callsTaken: m.callsTaken,
     lastCall: m.lastCall,
+    penalty: m.penalty,
+    dynamic: m.membership === 'dynamic',
+    endpointId: m.endpointId,
     rank,
   };
 }

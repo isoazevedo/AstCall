@@ -11,7 +11,8 @@ export const PERMISSIONS = [
   'transfer', // transferir e estacionar
   'spy', // escutar / sussurrar / intervir (ChanSpy)
   'record', // gravar (MixMonitor)
-  'queue', // gerenciar membros de fila
+  'queue', // pausar / retomar membros de fila
+  'queue_manage', // adicionar / remover membros de fila e alterar penalidade
   'conference', // gerenciar conferências ConfBridge
 ] as const;
 

@@ -6,7 +6,16 @@
  * aqui `wait()` e `ago()` usam o relógio compartilhado `now` (composable useNow), então o
  * Vue redesenha só esses textos a cada segundo.
  */
-import { Clock, Pause, PauseCircle, Play, Users } from 'lucide-vue-next';
+import {
+  Clock,
+  Pause,
+  PauseCircle,
+  Play,
+  SlidersHorizontal,
+  UserMinus,
+  UserPlus,
+  Users,
+} from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
 import { formatDuration, strategyLabel, waitTone, type QueueView } from '../lib/view';
 import { useMonitorStore } from '../stores/monitor';
@@ -14,13 +23,43 @@ import { useMonitorStore } from '../stores/monitor';
 const props = defineProps<{ queue: QueueView }>();
 const store = useMonitorStore();
 
-function togglePause(m: QueueView['members'][number]): void {
+function togglePause(m: Member): void {
   store.openDialog({
     kind: 'pause',
     queue: props.queue.name,
     interface: m.interface,
     label: m.label,
     pause: !m.paused,
+  });
+}
+
+type Member = QueueView['members'][number];
+
+function addMember(): void {
+  store.openDialog({
+    kind: 'queueAdd',
+    queue: props.queue.name,
+    members: props.queue.members.map((m) => m.endpointId).filter((e): e is string => !!e),
+  });
+}
+
+function editPenalty(m: Member): void {
+  store.openDialog({
+    kind: 'penalty',
+    queue: props.queue.name,
+    interface: m.interface,
+    label: m.label,
+    penalty: m.penalty,
+    dynamic: m.dynamic,
+  });
+}
+
+function removeMember(m: Member): void {
+  store.openDialog({
+    kind: 'queueRemove',
+    queue: props.queue.name,
+    interface: m.interface,
+    label: m.label,
   });
 }
 
@@ -44,7 +83,18 @@ function ago(since: number | null): string {
   <article class="ast-card queue">
     <header class="ast-card-header">
       <h5 class="ast-card-title"><Users :size="18" aria-hidden="true" /> {{ queue.name }}</h5>
-      <span class="ast-badge tone-secondary">{{ strategyLabel(queue.strategy) }}</span>
+      <div class="q-header-actions">
+        <span class="ast-badge tone-secondary">{{ strategyLabel(queue.strategy) }}</span>
+        <button
+          v-if="store.can('queue_manage')"
+          type="button"
+          class="m-btn add"
+          title="Adicionar um ramal a esta fila"
+          @click="addMember"
+        >
+          <UserPlus :size="14" aria-hidden="true" /> Adicionar
+        </button>
+      </div>
     </header>
 
     <div class="ast-card-body">
@@ -109,6 +159,13 @@ function ago(since: number | null): string {
         <ul v-else class="members">
           <li v-for="m in queue.members" :key="m.id" :class="{ dim: m.rank === 3 }">
             <span class="m-name" :title="m.interface">{{ m.label }}</span>
+            <span
+              v-if="m.dynamic"
+              class="ast-badge tone-info m-kind"
+              title="Membro dinâmico: adicionado pelo painel ou por login de agente (fora do cadastro)"
+            >
+              dinâmico
+            </span>
             <span class="ast-badge" :class="`tone-${m.tone}`">
               <PauseCircle v-if="m.paused" :size="12" aria-hidden="true" />
               {{ m.stateLabel }}
@@ -125,6 +182,25 @@ function ago(since: number | null): string {
               <Pause v-else :size="12" aria-hidden="true" />
               {{ m.paused ? 'Retomar' : 'Pausar' }}
             </button>
+            <template v-if="store.can('queue_manage')">
+              <button
+                type="button"
+                class="m-btn"
+                :title="`Penalidade de ${m.label}: ${m.penalty}`"
+                @click="editPenalty(m)"
+              >
+                <SlidersHorizontal :size="12" aria-hidden="true" /> {{ m.penalty }}
+              </button>
+              <button
+                v-if="m.dynamic"
+                type="button"
+                class="m-btn danger"
+                :title="`Remover ${m.label} desta fila`"
+                @click="removeMember(m)"
+              >
+                <UserMinus :size="12" aria-hidden="true" />
+              </button>
+            </template>
             <span class="m-info">
               <template v-if="m.paused">
                 {{ m.pausedReason || 'sem motivo' }} · {{ ago(m.pausedSince) }}
@@ -244,6 +320,43 @@ function ago(since: number | null): string {
   background: rgba(var(--ast-warning-rgb), 0.16);
   color: var(--ast-warning);
   cursor: pointer;
+}
+.q-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.m-kind {
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.4rem;
+}
+/* Botões pequenos da linha do membro (penalidade, remover) e do cabeçalho (adicionar) */
+.m-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 0;
+  border-radius: var(--ast-radius);
+  background: rgba(var(--ast-secondary-rgb), 0.16);
+  color: var(--ast-secondary);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.m-btn.add {
+  padding: 0.3rem 0.6rem;
+  background: rgba(var(--ast-primary-rgb), 0.16);
+  color: var(--ast-primary);
+}
+.m-btn.danger {
+  background: rgba(var(--ast-danger-rgb), 0.16);
+  color: var(--ast-danger);
+}
+.m-btn:hover {
+  filter: brightness(0.95);
 }
 .m-pause.resume {
   background: rgba(var(--ast-success-rgb), 0.16);

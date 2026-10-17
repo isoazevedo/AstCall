@@ -394,6 +394,33 @@ describe('filas (visão)', () => {
     expect(v.waiting.map((e) => e.uniqueid)).toEqual(['y', 'x']);
   });
 
+  it('expõe penalidade, ramal e se o membro é dinâmico (fora do cadastro)', () => {
+    const q = {
+      name: 'suporte',
+      strategy: 'ringall',
+      max: 0,
+      completed: 0,
+      abandoned: 0,
+      holdtime: 0,
+      talktime: 0,
+      serviceLevel: 0,
+      serviceLevelPerf: 0,
+      weight: 0,
+    };
+    const v = queueView(
+      q,
+      {
+        a: member('PJSIP/9001', { penalty: 3 }),
+        b: member('PJSIP/9005', { membership: 'dynamic' }),
+      },
+      {},
+    );
+    expect(v.members.map((m) => [m.endpointId, m.penalty, m.dynamic])).toEqual([
+      ['9001', 3, false],
+      ['9005', 0, true],
+    ]);
+  });
+
   it('cor da espera segue os limites de 60 s e 180 s', () => {
     expect(waitTone(59)).toBe('secondary');
     expect(waitTone(60)).toBe('warning');

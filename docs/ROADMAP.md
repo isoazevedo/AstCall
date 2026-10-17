@@ -34,6 +34,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 15  | **Escuta (item 14)**                   | Botão Escutar com modos Ouvir/Sussurrar/Intervir (ChanSpy `qE`/`qEw`/`qEB`); o diálogo sempre pede o ramal que vai tocar (ex.: ramal de um diretor), sugerindo o último usado; "Em escuta" na chamada e "9005 escutando 9002" na linha do supervisor. Os três modos validados com telefones no laboratório. Gravação manual fora de escopo (o AzCall já grava todas as chamadas).                                                                                                                                            | 🔄 Homologação |
 | 16  | **Integração AzCall (item 16)**        | Token RS256 emitido pelo AzCall (`AstCallTokenService`) com permissões `astcall.*` e escopo multi-empresa; snapshot/deltas/ações recortados por empresa; página `/astcall`, módulo liga/desliga em /config, menu; AstCall no servidor do laboratório (PM2 + proxy Apache em `/astcall/`). Teste de contrato OK (admin vê 12 endpoints/3 filas; super_admin vê 24/5). Validado no navegador: super_admin vê tudo; admin da empresa Avoip vê só o ramal 7100 (exatamente o cadastro). Contrato em `docs/INTEGRACAO_AZCALL.md`. | ✅ Produção    |
 | 17  | **Modo TV (item 24)**                  | `<ast-monitor mode="tv">`: wallboard escuro, só leitura, letras grandes; telas Filas (aguardando, maior espera ao vivo, atendidas, abandono, NS, agentes) e Chamadas (chamadas em curso + mapa de ramais); rodízio a cada 15 s (atributo `rotate`) que o usuário liga/desliga na própria tela, com a escolha salva no navegador; tela cheia. AzCall: `/astcall/tv` e botão "Modo TV"; standalone: `/?tv`.                                                                                                                    | ✅ Produção    |
+| 18  | **Membros de fila (item 13)**          | Adicionar membro dinâmico, remover (só dinâmico) e alterar penalidade pelo painel, com a permissão nova `queue_manage` e escopo por empresa; membros fixos (cadastro do AzCall) identificados na tela. Conferências fora (item 10 pausado).                                                                                                                                                                                                                                                                                  | 🔄 Homologação |
 
 ---
 
@@ -358,20 +359,34 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 13. Ações de filas e conferências
+#### 13. Ações de filas e conferências — 🔄
 
 **O que é:** Adicionar, remover, pausar membros e alterar penalidade; expulsar, silenciar e bloquear em conferências.
 
 **Por que fazer:** Ações operacionais previstas no escopo; substituem os comandos de CLI usados pelo MonAst.
 
-**Como implementar:**
+**Decisões (2026-10-17):**
 
-1. Filas: `QueueAdd`, `QueueRemove`, `QueuePause` (com motivo), `QueuePenalty`.
-2. Conferências: `ConfbridgeKick`, `ConfbridgeMute`/`Unmute`, `ConfbridgeLock`/`Unlock`.
+- O cadastro permanente de membros é do AzCall (`queue_members` → `member =>` no `queues.conf`, membros **fixos**). O painel faz mudanças operacionais: adiciona membros **dinâmicos** (`QueueAdd`), que continuam na fila após reload/reinício (`persistentmembers=yes`) até serem removidos, mas não entram no cadastro.
+- `QueueRemove` só vale para membros dinâmicos (o Asterisk recusa remover fixo); para fixos o painel orienta a usar o cadastro ou a pausa.
+- `QueuePenalty` vale para qualquer membro; nos fixos volta ao valor do cadastro no próximo reload das filas (o painel avisa).
+- Permissão nova **`queue_manage`** (AzCall: `astcall.queue_manage`, migration 162), separada de `queue` (pausar/retomar).
+- Conferências fora (item 10 pausado).
+
+**Escopo:**
+
+- [x] Filas: `QueueAdd` (interface sempre `PJSIP/<ramal>` montada no backend), `QueueRemove` (só dinâmico), `QueuePenalty`, `QueuePause` (item 12)
+- [x] Escopo multi-empresa: ramal e fila precisam ser da empresa
+- [x] Painel: botão "Adicionar" no card da fila (lista só ramais visíveis fora da fila, penalidade, entrar pausado), marca "dinâmico", botão de penalidade e de remover (só dinâmico)
+- [x] Token tolerante a permissões desconhecidas (AzCall pode ser atualizado antes do AstCall)
+- [ ] Validar no laboratório
+- [ ] ~~Conferências~~ (item 10 pausado)
 
 **Arquivos envolvidos:**
 
-- `apps/realtime/src/actions/definitions/queue.ts`, `apps/realtime/src/actions/definitions/confbridge.ts`
+- `apps/realtime/src/actions/ActionService.ts`, `packages/shared/src/actions.ts`, `packages/shared/src/auth.ts`
+- `apps/web/src/components/QueueCard.ce.vue`, `apps/web/src/components/ActionDialog.ce.vue`
+- AzCall: `AstCallTokenService::PERMISSION_MAP`, `database/migrations/162_seed_astcall_queue_manage.php`
 
 **Esforço estimado:** P
 **Impacto esperado:** Médio
@@ -604,3 +619,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Item 16 validado no navegador (super_admin e admin de outra empresa); corrigido erro no menu do layout que derrubou o AzCall do laboratório após a implantação                                      |
 | 2026-10-17 | Claude Code | Novo item 24 (modo TV, inspirado no SmartQueue) implementado; validado no navegador com o laboratório (rodízio, preferência salva); aguarda teste numa TV com chamadas                              |
 | 2026-10-17 | Claude Code | Item 24 instalado e validado no laboratório com chamada na fila; falta só observar a sessão em uso prolongado                                                                                       |
+| 2026-10-17 | Claude Code | Item 13 implementado (gestão de membros de fila, permissão `queue_manage`); aguarda validação no laboratório                                                                                        |

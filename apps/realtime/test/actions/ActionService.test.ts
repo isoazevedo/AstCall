@@ -380,3 +380,136 @@ describe('escopo multi-empresa nas ações', () => {
     expect(r).toBe('not_found');
   });
 });
+
+describe('gestão de membros de fila (queue_manage)', () => {
+  const MANAGE: ServerPermissions = { pbx1: ['view', 'queue_manage'] };
+  /** Um usuário por chamada: estes testes fazem mais ações que o limite (3) do serviço. */
+  let n = 0;
+  const manager = () => claims(MANAGE, `gestor${++n}`);
+
+  // Ramal 9005 registrado e fora da fila (9001 e 9002 já são membros fixos na gravação)
+  beforeEach(() => {
+    applyEvent(store, { event: 'DeviceStateChange', device: 'PJSIP/9005', state: 'NOT_INUSE' });
+  });
+
+  /** Torna o membro 9001 da suporte-default dinâmico (como se tivesse entrado por QueueAdd). */
+  const makeDynamic = () =>
+    applyEvent(store, {
+      event: 'QueueMemberAdded',
+      queue: 'suporte-default',
+      interface: 'PJSIP/9001',
+      membership: 'dynamic',
+      status: '1',
+      paused: '0',
+    });
+
+  it('exige queue_manage (pausar com "queue" não basta)', async () => {
+    const params = { queue: 'suporte-default', endpoint: '9005', penalty: 0, paused: false };
+    expect(await code(service.execute(claims(ALL), 'pbx1', 'queueAdd', params))).toBe('forbidden');
+    expect(await code(service.execute(manager(), 'pbx1', 'queueAdd', params))).toBe('ok');
+  });
+
+  it('queueAdd monta a interface PJSIP do ramal (o navegador não escolhe a interface)', async () => {
+    await service.execute(manager(), 'pbx1', 'queueAdd', {
+      queue: 'suporte-default',
+      endpoint: '9005',
+      penalty: 2,
+      paused: true,
+    });
+    expect(conn.sent[0]).toEqual({
+      action: 'QueueAdd',
+      fields: {
+        Queue: 'suporte-default',
+        Interface: 'PJSIP/9005',
+        MemberName: '9005',
+        Penalty: 2,
+        Paused: 'true',
+      },
+    });
+  });
+
+  it('queueAdd recusa fila/ramal inexistente, membro repetido e penalidade inválida', async () => {
+    const add = (p: object) =>
+      code(
+        service.execute(manager(), 'pbx1', 'queueAdd', {
+          queue: 'suporte-default',
+          endpoint: '9005',
+          penalty: 0,
+          paused: false,
+          ...p,
+        }),
+      );
+    expect(await add({ queue: 'nao-existe' })).toBe('not_found');
+    expect(await add({ endpoint: '7777' })).toBe('not_found');
+    expect(await add({ endpoint: '9001' })).toBe('invalid'); // já é membro
+    expect(await add({ penalty: -1 })).toBe('invalid');
+    expect(await add({ penalty: 1.5 })).toBe('invalid');
+  });
+
+  it('queueRemove só remove membro dinâmico', async () => {
+    const remove = () =>
+      code(
+        service.execute(manager(), 'pbx1', 'queueRemove', {
+          queue: 'suporte-default',
+          interface: 'PJSIP/9001',
+        }),
+      );
+    expect(await remove()).toBe('invalid'); // fixo (do cadastro)
+    expect(conn.sent).toHaveLength(0);
+
+    makeDynamic();
+    expect(await remove()).toBe('ok');
+    expect(conn.sent[0]).toEqual({
+      action: 'QueueRemove',
+      fields: { Queue: 'suporte-default', Interface: 'PJSIP/9001' },
+    });
+  });
+
+  it('queuePenalty em membro existente', async () => {
+    await service.execute(manager(), 'pbx1', 'queuePenalty', {
+      queue: 'suporte-default',
+      interface: 'PJSIP/9001',
+      penalty: 5,
+    });
+    expect(conn.sent[0]).toEqual({
+      action: 'QueuePenalty',
+      fields: { Queue: 'suporte-default', Interface: 'PJSIP/9001', Penalty: 5 },
+    });
+    expect(
+      await code(
+        service.execute(manager(), 'pbx1', 'queuePenalty', {
+          queue: 'suporte-default',
+          interface: 'PJSIP/9999',
+          penalty: 1,
+        }),
+      ),
+    ).toBe('not_found');
+  });
+
+  it('com escopo: não adiciona ramal nem mexe em fila de outra empresa', async () => {
+    const empresa = (): TokenClaims => ({
+      ...manager(),
+      scope: { pbx1: { endpoints: ['9001'], queues: ['suporte-default'] } },
+    });
+    const add = (endpoint: string, queue: string) =>
+      code(
+        service.execute(empresa(), 'pbx1', 'queueAdd', {
+          queue,
+          endpoint,
+          penalty: 0,
+          paused: false,
+        }),
+      );
+    expect(await add('9002', 'suporte-default')).toBe('not_found'); // ramal de outra empresa
+    expect(await add('9001', 'marcacao-default')).toBe('not_found'); // fila de outra empresa
+    expect(
+      await code(
+        service.execute(empresa(), 'pbx1', 'queuePenalty', {
+          queue: 'marcacao-default',
+          interface: 'PJSIP/9001',
+          penalty: 1,
+        }),
+      ),
+    ).toBe('not_found');
+  });
+});

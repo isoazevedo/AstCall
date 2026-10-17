@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import bcrypt from 'bcryptjs';
 import type { ServerPermissions } from '@astcall/shared';
-import { permsSchema } from './tokens.js';
+import { permsInputSchema, permsSchema } from './tokens.js';
 
 /** Custo padrão do bcrypt (cada +1 dobra o tempo). bcryptjs é JS puro: 11 ≈ 0,2–0,4 s. */
 const DEFAULT_BCRYPT_COST = 11;
@@ -80,7 +80,7 @@ export class UserRepository {
     perms: ServerPermissions;
   }): User {
     validatePassword(input.password);
-    const perms = permsSchema.parse(input.perms);
+    const perms = permsInputSchema.parse(input.perms);
     const now = Date.now();
     try {
       const result = this.db
@@ -132,7 +132,7 @@ export class UserRepository {
   }
 
   setPerms(username: string, perms: ServerPermissions): void {
-    const parsed = permsSchema.parse(perms);
+    const parsed = permsInputSchema.parse(perms);
     this.mustChange(
       this.db
         .prepare('UPDATE users SET perms = ? WHERE username = ?')

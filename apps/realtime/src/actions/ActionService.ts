@@ -3,6 +3,7 @@ import {
   ACTION_PERMISSION,
   DIAL_TARGET,
   hasPermission,
+  PENALTY_MAX,
   type ActionName,
   type ServerId,
   type TokenClaims,
@@ -44,6 +45,11 @@ interface AmiCall {
 }
 
 const dialTarget = z.string().trim().regex(DIAL_TARGET, 'use apenas dígitos, *, # ou +');
+const penalty = z
+  .number()
+  .int('a penalidade deve ser um número inteiro')
+  .min(0, 'a penalidade não pode ser negativa')
+  .max(PENALTY_MAX, `a penalidade máxima é ${PENALTY_MAX}`);
 
 /** Parâmetros aceitos por ação (o que vier a mais é descartado). */
 const SCHEMAS = {
@@ -52,6 +58,21 @@ const SCHEMAS = {
     interface: z.string().min(1).max(128),
     paused: z.boolean(),
     reason: z.string().trim().max(64).optional(),
+  }),
+  queueAdd: z.object({
+    queue: z.string().min(1).max(128),
+    endpoint: z.string().trim().min(1).max(64),
+    penalty,
+    paused: z.boolean(),
+  }),
+  queueRemove: z.object({
+    queue: z.string().min(1).max(128),
+    interface: z.string().min(1).max(128),
+  }),
+  queuePenalty: z.object({
+    queue: z.string().min(1).max(128),
+    interface: z.string().min(1).max(128),
+    penalty,
   }),
   hangup: z.object({ uniqueid: z.string().min(1).max(64) }),
   transfer: z.object({ uniqueid: z.string().min(1).max(64), to: dialTarget }),
@@ -161,12 +182,20 @@ export class ActionService {
       if (typeof data.from === 'string' && !filter.endpointVisible(data.from)) throw notFound();
       if (typeof data.listener === 'string' && !filter.endpointVisible(data.listener))
         throw notFound();
+      if (typeof data.endpoint === 'string' && !filter.endpointVisible(data.endpoint))
+        throw notFound();
       if (typeof data.queue === 'string' && !filter.queueVisible(data.queue)) throw notFound();
     }
 
     switch (action) {
       case 'queuePause':
         return this.buildQueuePause(target, data as z.infer<typeof SCHEMAS.queuePause>, filter);
+      case 'queueAdd':
+        return [this.buildQueueAdd(target, data as z.infer<typeof SCHEMAS.queueAdd>)];
+      case 'queueRemove':
+        return [this.buildQueueRemove(target, data as z.infer<typeof SCHEMAS.queueRemove>)];
+      case 'queuePenalty':
+        return [this.buildQueuePenalty(target, data as z.infer<typeof SCHEMAS.queuePenalty>)];
       case 'hangup':
         return [this.buildHangup(target, data as z.infer<typeof SCHEMAS.hangup>)];
       case 'transfer':
@@ -207,6 +236,60 @@ export class ActionService {
       }));
     }
     return [{ action: 'QueuePause', fields: fields(p.queue ?? undefined) }];
+  }
+
+  /**
+   * Adiciona um ramal como membro dinâmico. A interface é sempre montada aqui
+   * (`PJSIP/<ramal>`), nunca vinda do navegador.
+   */
+  private buildQueueAdd({ store }: ActionTarget, p: z.infer<typeof SCHEMAS.queueAdd>): AmiCall {
+    if (!store.queues.has(p.queue)) throw new ActionError('not_found', 'fila não encontrada');
+    if (!store.endpoints.has(p.endpoint)) {
+      throw new ActionError('not_found', `ramal ${p.endpoint} não encontrado`);
+    }
+    const iface = `PJSIP/${p.endpoint}`;
+    if (store.queueMembers.has(`${p.queue}|${iface}`)) {
+      throw new ActionError('invalid', `o ramal ${p.endpoint} já é membro desta fila`);
+    }
+    return {
+      action: 'QueueAdd',
+      fields: {
+        Queue: p.queue,
+        Interface: iface,
+        MemberName: p.endpoint,
+        Penalty: p.penalty,
+        Paused: p.paused ? 'true' : 'false',
+      },
+    };
+  }
+
+  /** Remove um membro dinâmico. Membro fixo (do cadastro/queues.conf) o Asterisk não remove. */
+  private buildQueueRemove(
+    { store }: ActionTarget,
+    p: z.infer<typeof SCHEMAS.queueRemove>,
+  ): AmiCall {
+    const member = store.queueMembers.get(`${p.queue}|${p.interface}`);
+    if (!member) throw new ActionError('not_found', 'membro não encontrado nesta fila');
+    if (member.membership !== 'dynamic') {
+      throw new ActionError(
+        'invalid',
+        'membro fixo: remova pelo cadastro de filas (ou pause o membro)',
+      );
+    }
+    return { action: 'QueueRemove', fields: { Queue: p.queue, Interface: p.interface } };
+  }
+
+  private buildQueuePenalty(
+    { store }: ActionTarget,
+    p: z.infer<typeof SCHEMAS.queuePenalty>,
+  ): AmiCall {
+    if (!store.queueMembers.has(`${p.queue}|${p.interface}`)) {
+      throw new ActionError('not_found', 'membro não encontrado nesta fila');
+    }
+    return {
+      action: 'QueuePenalty',
+      fields: { Queue: p.queue, Interface: p.interface, Penalty: p.penalty },
+    };
   }
 
   private buildHangup({ store }: ActionTarget, p: z.infer<typeof SCHEMAS.hangup>): AmiCall {

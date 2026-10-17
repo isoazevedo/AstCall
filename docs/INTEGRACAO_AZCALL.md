@@ -1,7 +1,7 @@
 # Integração AstCall × AzCall (modo integrado)
 
 > Contrato entre o AstCall (backend Node + Web Component) e o AzCall (PHP).
-> Versão do contrato: **1.1** · Última revisão: 2026-10-17
+> Versão do contrato: **1.2** · Última revisão: 2026-10-17
 
 O AzCall embute o painel AstCall numa página própria, autentica o usuário (sem segundo login)
 e emite o token. O AstCall só **valida** o token e aplica permissões e escopo que vêm nele.
@@ -52,20 +52,25 @@ define `--ast-card-bg` (o tema não expõe a cor do card na raiz) — ver `views
 
 ### 1.3 Token (JWT RS256)
 
-| Claim       | Tipo                                                          | Descrição                                                      |
-| ----------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
-| `iss`       | string                                                        | `azcall` (precisa constar em `EXTERNAL_JWT_ISSUER` do AstCall) |
-| `sub`       | string                                                        | `azcall:<id do usuário>`                                       |
-| `name`      | string                                                        | nome de exibição                                               |
-| `iat`/`exp` | número (s)                                                    | validade curta (padrão 600 s)                                  |
-| `perms`     | `{ "<servidor>": Permissão[] }`                               | `view`, `hangup`, `transfer`, `originate`, `spy`, `queue`      |
-| `scope`     | `{ "<servidor>": { endpoints: string[], queues: string[] } }` | **opcional**; ausente = vê tudo naquele servidor (super_admin) |
-| `extension` | string                                                        | **opcional**; ramal do usuário (sugestão no diálogo de escuta) |
+| Claim       | Tipo                                                          | Descrição                                                                 |
+| ----------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `iss`       | string                                                        | `azcall` (precisa constar em `EXTERNAL_JWT_ISSUER` do AstCall)            |
+| `sub`       | string                                                        | `azcall:<id do usuário>`                                                  |
+| `name`      | string                                                        | nome de exibição                                                          |
+| `iat`/`exp` | número (s)                                                    | validade curta (padrão 600 s)                                             |
+| `perms`     | `{ "<servidor>": Permissão[] }`                               | `view`, `hangup`, `transfer`, `originate`, `spy`, `queue`, `queue_manage` |
+| `scope`     | `{ "<servidor>": { endpoints: string[], queues: string[] } }` | **opcional**; ausente = vê tudo naquele servidor (super_admin)            |
+| `extension` | string                                                        | **opcional**; ramal do usuário (sugestão no diálogo de escuta)            |
 
 **Mapeamento de permissões** (AzCall → AstCall), em `AstCallTokenService::PERMISSION_MAP`:
 `astcall.view → view`, `astcall.hangup → hangup`, `astcall.transfer → transfer`,
-`astcall.originate → originate`, `astcall.spy → spy`, `astcall.queue → queue`.
+`astcall.originate → originate`, `astcall.spy → spy`, `astcall.queue → queue` (pausar/retomar),
+`astcall.queue_manage → queue_manage` (adicionar/remover membros dinâmicos e alterar penalidade).
 `super_admin` recebe todas.
+
+**Permissões desconhecidas** no token são ignoradas pelo AstCall (o token continua válido).
+Assim o AzCall pode passar a emitir uma permissão nova antes de o AstCall ser atualizado; ela
+só passa a valer depois da atualização.
 
 **Escopo (multi-empresa):** para quem não é `super_admin`, o AzCall lista os nomes dos
 endpoints PJSIP da empresa (`extensions.extension` e `trunks.trunk_name`) e das filas no
@@ -194,7 +199,8 @@ O navegador revalida o `ast-monitor.js` (ETag) a cada carga da página.
 
 ## Histórico de revisões
 
-| Data       | Autor       | O que mudou                                                                     |
-| ---------- | ----------- | ------------------------------------------------------------------------------- |
-| 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório                                 |
-| 2026-10-17 | Claude Code | Versão 1.1: atributos opcionais `mode` e `rotate` (modo TV), rota `/astcall/tv` |
+| Data       | Autor       | O que mudou                                                                                  |
+| ---------- | ----------- | -------------------------------------------------------------------------------------------- |
+| 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório                                              |
+| 2026-10-17 | Claude Code | Versão 1.1: atributos opcionais `mode` e `rotate` (modo TV), rota `/astcall/tv`              |
+| 2026-10-17 | Claude Code | Versão 1.2: permissão `queue_manage` (migration 162); permissões desconhecidas são ignoradas |

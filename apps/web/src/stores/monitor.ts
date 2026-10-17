@@ -213,4 +213,15 @@ export type ActionDialog =
   | { kind: 'transfer'; uniqueid: string; label: string }
   | { kind: 'originate'; from: string }
   | { kind: 'spy'; uniqueid: string; label: string }
-  | { kind: 'pause'; queue: string; interface: string; label: string; pause: boolean };
+  | { kind: 'pause'; queue: string; interface: string; label: string; pause: boolean }
+  /** Adicionar membro: `members` = ramais que já estão na fila (saem da lista de opções). */
+  | { kind: 'queueAdd'; queue: string; members: string[] }
+  | { kind: 'queueRemove'; queue: string; interface: string; label: string }
+  | {
+      kind: 'penalty';
+      queue: string;
+      interface: string;
+      label: string;
+      penalty: number;
+      dynamic: boolean;
+    };

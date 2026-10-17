@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
- * Diálogo único para as ações (desligar, transferir, ligar, pausar/retomar, escutar).
+ * Diálogo único para as ações (desligar, transferir, ligar, pausar/retomar, escutar e
+ * gestão de membros de fila: adicionar, remover, penalidade).
  * Abre quando o store recebe `openDialog(...)` e fecha com `closeDialog()`.
  *
  * Conceitos: `watch` reinicia os campos sempre que um diálogo novo abre; `computed`
  * decide título e texto do botão conforme o tipo; `@keydown.esc` fecha pelo teclado.
  */
 import { computed, nextTick, ref, watch } from 'vue';
-import { DIAL_TARGET, type SpyMode } from '@astcall/shared';
+import { DIAL_TARGET, PENALTY_MAX, type SpyMode } from '@astcall/shared';
 import { useMonitorStore } from '../stores/monitor';
 
 const store = useMonitorStore();
@@ -16,6 +17,10 @@ const number = ref('');
 const reason = ref('');
 const allQueues = ref(false);
 const spyMode = ref<SpyMode>('listen');
+/** Gestão de membros: ramal escolhido, penalidade e "já entrar pausado". */
+const endpoint = ref('');
+const penalty = ref(0);
+const startPaused = ref(false);
 
 /** Último ramal usado para escutar, lembrado neste navegador (só uma sugestão editável). */
 const LISTENER_KEY = 'astcall.spyListener';
@@ -51,6 +56,9 @@ watch(
     reason.value = '';
     allQueues.value = false;
     spyMode.value = 'listen';
+    endpoint.value = '';
+    penalty.value = d?.kind === 'penalty' ? d.penalty : 0;
+    startPaused.value = false;
     error.value = '';
     busy.value = false;
     if (d) {
@@ -88,6 +96,29 @@ const view = computed(() => {
         danger: false,
         text: `Escutar ${d.label}. Informe o ramal que vai tocar para quem vai ouvir (pode ser outro ramal, como o de um diretor):`,
       };
+    case 'queueAdd':
+      return {
+        title: 'Adicionar membro',
+        confirm: 'Adicionar',
+        danger: false,
+        text: `Adicionar um ramal à fila ${d.queue}. Ele entra como membro dinâmico: fica na fila (mesmo após reiniciar o Asterisk) até ser removido, mas não aparece no cadastro de filas.`,
+      };
+    case 'queueRemove':
+      return {
+        title: 'Remover membro',
+        confirm: 'Remover',
+        danger: true,
+        text: `Remover ${d.label} da fila ${d.queue}?`,
+      };
+    case 'penalty':
+      return {
+        title: 'Penalidade',
+        confirm: 'Salvar',
+        danger: false,
+        text: d.dynamic
+          ? `Penalidade de ${d.label} na fila ${d.queue} (0 = recebe primeiro; quanto maior, mais tarde recebe).`
+          : `Penalidade de ${d.label} na fila ${d.queue} (0 = recebe primeiro). Membro fixo: volta ao valor do cadastro quando as filas forem recarregadas.`,
+      };
     case 'pause':
       return d.pause
         ? {
@@ -106,6 +137,27 @@ const view = computed(() => {
   return null;
 });
 
+/** Ramais que podem entrar na fila: os visíveis que ainda não são membros dela. */
+const candidates = computed(() => {
+  const d = store.dialog;
+  if (d?.kind !== 'queueAdd') return [];
+  const taken = new Set(d.members);
+  return store.endpoints.filter((e) => !taken.has(e.id));
+});
+
+const penaltyValid = computed(
+  () => Number.isInteger(penalty.value) && penalty.value >= 0 && penalty.value <= PENALTY_MAX,
+);
+
+/** O botão de confirmar fica desligado enquanto falta algo obrigatório. */
+const incomplete = computed(() => {
+  const kind = store.dialog?.kind;
+  if (needsNumber.value) return !numberValid.value;
+  if (kind === 'queueAdd') return !endpoint.value || !penaltyValid.value;
+  if (kind === 'penalty') return !penaltyValid.value;
+  return false;
+});
+
 const needsNumber = computed(
   () =>
     store.dialog?.kind === 'transfer' ||
@@ -121,6 +173,7 @@ async function submit(): Promise<void> {
     error.value = 'Informe um número (dígitos, *, # ou +).';
     return;
   }
+  if (incomplete.value) return;
   busy.value = true;
   error.value = '';
   const to = number.value.trim();
@@ -153,6 +206,32 @@ async function submit(): Promise<void> {
       if (result.ok) rememberListener(to);
       break;
     }
+    case 'queueAdd':
+      result = await store.act(
+        'queueAdd',
+        {
+          queue: d.queue,
+          endpoint: endpoint.value,
+          penalty: penalty.value,
+          paused: startPaused.value,
+        },
+        `Ramal ${endpoint.value} adicionado à fila ${d.queue}`,
+      );
+      break;
+    case 'queueRemove':
+      result = await store.act(
+        'queueRemove',
+        { queue: d.queue, interface: d.interface },
+        `${d.label} removido da fila ${d.queue}`,
+      );
+      break;
+    case 'penalty':
+      result = await store.act(
+        'queuePenalty',
+        { queue: d.queue, interface: d.interface, penalty: penalty.value },
+        `Penalidade de ${d.label} na fila ${d.queue}: ${penalty.value}`,
+      );
+      break;
     case 'pause': {
       const scope = allQueues.value ? 'em todas as filas' : `na fila ${d.queue}`;
       result = await store.act(
@@ -229,6 +308,44 @@ async function submit(): Promise<void> {
         </label>
       </template>
 
+      <!-- Adicionar membro: ramal + penalidade + entrar pausado -->
+      <template v-if="store.dialog.kind === 'queueAdd'">
+        <p v-if="candidates.length === 0" class="dlg-hint">
+          Todos os ramais visíveis já são membros desta fila.
+        </p>
+        <label v-else class="field">
+          <span>Ramal</span>
+          <select v-model="endpoint" class="ast-input" :disabled="busy">
+            <option value="" disabled>Escolha o ramal</option>
+            <option v-for="e in candidates" :key="e.id" :value="e.id">
+              {{ e.id }} — {{ e.label }}
+            </option>
+          </select>
+        </label>
+      </template>
+
+      <label
+        v-if="store.dialog.kind === 'queueAdd' || store.dialog.kind === 'penalty'"
+        class="field"
+      >
+        <span>Penalidade</span>
+        <input
+          ref="firstInput"
+          v-model.number="penalty"
+          type="number"
+          min="0"
+          :max="PENALTY_MAX"
+          step="1"
+          class="ast-input"
+          :disabled="busy"
+        />
+      </label>
+
+      <label v-if="store.dialog.kind === 'queueAdd'" class="check">
+        <input v-model="startPaused" type="checkbox" :disabled="busy" />
+        Entrar pausado
+      </label>
+
       <p v-if="error" class="dlg-error" role="alert">{{ error }}</p>
 
       <div class="dlg-actions">
@@ -244,7 +361,7 @@ async function submit(): Promise<void> {
           type="submit"
           class="btn"
           :class="view.danger ? 'btn-danger' : 'btn-primary'"
-          :disabled="busy || (needsNumber && !numberValid)"
+          :disabled="busy || incomplete"
         >
           {{ busy ? 'Aguarde…' : view.confirm }}
         </button>
@@ -311,6 +428,17 @@ async function submit(): Promise<void> {
   gap: 0.5rem;
   font-size: 0.875rem;
   cursor: pointer;
+}
+.field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ast-heading);
+}
+.dlg-hint {
+  font-size: 0.875rem;
+  color: var(--ast-text-muted);
 }
 .dlg-error {
   padding: 0.5rem 0.75rem;

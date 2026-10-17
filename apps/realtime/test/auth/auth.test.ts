@@ -91,7 +91,7 @@ describe('tokens', () => {
     await expect(verifier.verify(forged)).rejects.toThrow(/assinatura/);
   });
 
-  it('rejeita emissor desconhecido, token expirado, malformado e perms inválidas', async () => {
+  it('rejeita emissor desconhecido, token expirado, malformado e perms em formato inválido', async () => {
     const verifier = await TokenVerifier.create(auth);
     const sign = (claims: Record<string, unknown>, iss: string, exp: string | number) =>
       new SignJWT(claims)
@@ -111,8 +111,21 @@ describe('tokens', () => {
     );
     await expect(verifier.verify('isso.nao.e-um-jwt')).rejects.toThrow(/malformado/);
     await expect(
-      verifier.verify(await sign({ perms: { pbx1: ['root'] } }, 'azcall', '5m')),
+      verifier.verify(await sign({ perms: { pbx1: 'view' } }, 'azcall', '5m')),
     ).rejects.toThrow(/claims inválidas/);
+  });
+
+  it('ignora permissões desconhecidas (emissor mais novo que o backend)', async () => {
+    const verifier = await TokenVerifier.create(auth);
+    const token = await new SignJWT({ name: 'Bia', perms: { pbx1: ['view', 'teleporte'] } })
+      .setProtectedHeader({ alg: 'RS256' })
+      .setSubject('bia')
+      .setIssuer('azcall')
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(azcallKey);
+    const claims = await verifier.verify(token);
+    expect(claims.perms).toEqual({ pbx1: ['view'] });
   });
 
   it('no modo local não aceita tokens do AzCall', async () => {

@@ -9,7 +9,12 @@ import {
   type CryptoKey,
 } from 'jose';
 import { z } from 'zod';
-import { PERMISSIONS, type ServerPermissions, type TokenClaims } from '@astcall/shared';
+import {
+  PERMISSIONS,
+  type Permission,
+  type ServerPermissions,
+  type TokenClaims,
+} from '@astcall/shared';
 import { ConfigError, localAuthEnabled, type AuthConfig } from '../config/index.js';
 
 const ALG = 'RS256';
@@ -21,8 +26,20 @@ export class AuthError extends Error {
   override name = 'AuthError';
 }
 
-/** Formato das permissões dentro do token. */
-export const permsSchema = z.record(z.string().min(1), z.array(z.enum(PERMISSIONS)));
+const KNOWN = new Set<string>(PERMISSIONS);
+
+/** Permissões na entrada do cadastro local: estrito (permissão inexistente é erro de digitação). */
+export const permsInputSchema = z.record(z.string().min(1), z.array(z.enum(PERMISSIONS)));
+
+/**
+ * Formato das permissões dentro do token. Permissões desconhecidas são ignoradas (não
+ * invalidam o token): um emissor mais novo que este backend continua funcionando, só sem
+ * o que este backend ainda não conhece.
+ */
+export const permsSchema = z.record(
+  z.string().min(1),
+  z.array(z.string()).transform((list) => list.filter((p): p is Permission => KNOWN.has(p))),
+);
 
 const claimsSchema = z.object({
   sub: z.string().min(1),
