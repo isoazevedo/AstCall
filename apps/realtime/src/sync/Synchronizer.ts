@@ -45,6 +45,19 @@ export interface SynchronizerOptions {
    * médias/totais mudam; a reconciliação também corrige divergências. 0 = desligada.
    */
   queueRefreshMs?: number;
+  /**
+   * Intervalo da reconciliação de canais e bridges (CoreShowChannels + BridgeList): remove
+   * "fantasmas" de eventos perdidos (ex.: Hangup) e cria o que faltar. 0 = desligada.
+   */
+  channelReconcileMs?: number;
+}
+
+/** O que a reconciliação de canais corrigiu (para log e testes). */
+export interface ChannelReconcileResult {
+  channelsAdded: number;
+  channelsRemoved: number;
+  bridgesAdded: number;
+  bridgesRemoved: number;
 }
 
 type SyncEvents = {
@@ -75,10 +88,13 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
   private again = false;
   private reloadTimer: NodeJS.Timeout | undefined;
   private queueTimer: NodeJS.Timeout | undefined;
+  private channelTimer: NodeJS.Timeout | undefined;
   private refreshingQueues = false;
+  private reconcilingChannels = false;
   private readonly log: Logger;
   private readonly reloadDebounceMs: number;
   private readonly queueRefreshMs: number;
+  private readonly channelReconcileMs: number;
 
   constructor(
     private readonly conn: AmiConnection,
@@ -90,17 +106,17 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
     this.log = log.child({ server: conn.serverId });
     this.reloadDebounceMs = options.reloadDebounceMs ?? 3_000;
     this.queueRefreshMs = options.queueRefreshMs ?? 60_000;
+    this.channelReconcileMs = options.channelReconcileMs ?? 60_000;
     // Cada nova conexão AMI dispara uma sincronização completa
     conn.setOnConnected(() => this.run());
     conn.on('event', (ev) => this.onEvent(ev));
     conn.on('status', (status) => {
       if (status === 'disconnected') {
         this.cancelScheduledResync();
-        clearInterval(this.queueTimer);
-        this.queueTimer = undefined;
+        this.stopPeriodic();
       }
     });
-    this.on('synced', () => this.startQueueRefresh());
+    this.on('synced', () => this.startPeriodic());
   }
 
   get epoch(): number {
@@ -196,11 +212,7 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
       queueMember: new Set<string>(),
       queueEntry: new Set<string>(),
     };
-    const touched = new Set<string>();
-    const onDeltas = (ops: { entity: string; id: string }[]) => {
-      for (const op of ops) touched.add(`${op.entity}:${op.id}`);
-    };
-    this.store.on('deltas', onDeltas);
+    const touched = this.trackTouched();
     try {
       await this.conn.sendListAction('QueueStatus', {}, undefined, (item) => {
         applyEvent(this.store, item);
@@ -229,15 +241,118 @@ export class Synchronizer extends EventEmitter<SyncEvents> {
         this.log.debug({ err: (err as Error).message }, 'Reconciliação das filas falhou');
       }
     } finally {
-      this.store.off('deltas', onDeltas);
+      touched.stop();
       this.refreshingQueues = false;
     }
   }
 
-  private startQueueRefresh(): void {
+  /**
+   * Reconciliação de canais e bridges, com a mesma proteção das filas:
+   * - canal/bridge no Asterisk e ausente aqui (evento de criação perdido): é criado;
+   * - canal/bridge aqui e ausente no Asterisk (ex.: Hangup perdido): é removido — exceto se
+   *   algum evento o alterou durante a consulta;
+   * - canais que já existem NÃO são sobrescritos: a lista só traz o atendimento aproximado,
+   *   e os eventos ao vivo têm o horário exato.
+   * Devolve o que foi corrigido (undefined se não rodou).
+   */
+  async reconcileChannels(): Promise<ChannelReconcileResult | undefined> {
+    if (this._syncing || this.reconcilingChannels) return undefined;
+    this.reconcilingChannels = true;
+    const result: ChannelReconcileResult = {
+      channelsAdded: 0,
+      channelsRemoved: 0,
+      bridgesAdded: 0,
+      bridgesRemoved: 0,
+    };
+    const seenBridges = new Set<string>();
+    const seenChannels = new Set<string>();
+    const touched = this.trackTouched();
+    try {
+      await this.listOrEmpty('BridgeList', (item) => {
+        if (!item.bridgeuniqueid) return;
+        seenBridges.add(item.bridgeuniqueid);
+        if (!this.store.bridges.has(item.bridgeuniqueid)) {
+          applyEvent(this.store, item);
+          result.bridgesAdded++;
+        }
+      });
+      await this.listOrEmpty('CoreShowChannels', (item) => {
+        if (!item.uniqueid) return;
+        seenChannels.add(item.uniqueid);
+        if (!this.store.channels.has(item.uniqueid)) {
+          applyEvent(this.store, item);
+          result.channelsAdded++;
+        }
+      });
+      for (const id of [...this.store.channels.keys()]) {
+        if (!seenChannels.has(id) && !touched.has(`channel:${id}`)) {
+          this.store.removeChannel(id);
+          result.channelsRemoved++;
+        }
+      }
+      for (const id of [...this.store.bridges.keys()]) {
+        if (!seenBridges.has(id) && !touched.has(`bridge:${id}`)) {
+          this.store.removeBridge(id);
+          result.bridgesRemoved++;
+        }
+      }
+      this.store.flush();
+      if (Object.values(result).some((n) => n > 0)) {
+        // Se aparecer com frequência, há perda de eventos (rede, writetimeout, filtro do AMI)
+        this.log.warn(result, 'Reconciliação corrigiu canais/bridges divergentes');
+      }
+      return result;
+    } catch (err) {
+      this.log.debug({ err: (err as Error).message }, 'Reconciliação de canais falhou');
+      return undefined;
+    } finally {
+      touched.stop();
+      this.reconcilingChannels = false;
+    }
+  }
+
+  /** Lista do AMI tratando "Response: Error" de lista vazia como lista vazia. */
+  private async listOrEmpty(action: string, onItem: (item: AmiMessage) => void): Promise<void> {
+    try {
+      await this.conn.sendListAction(action, {}, undefined, onItem);
+    } catch (err) {
+      if (!isEmptyListError(err)) throw err;
+    }
+  }
+
+  /**
+   * Registra as entidades alteradas (deltas do store) a partir de agora, como
+   * "<entidade>:<id>". `applyEvent` faz flush a cada evento, então todo evento recebido
+   * durante a consulta já aparece aqui. Chame `stop()` ao terminar.
+   */
+  private trackTouched(): { has(key: string): boolean; stop(): void } {
+    const touched = new Set<string>();
+    const onDeltas = (ops: { entity: string; id: string }[]) => {
+      for (const op of ops) touched.add(`${op.entity}:${op.id}`);
+    };
+    this.store.on('deltas', onDeltas);
+    return {
+      has: (key) => touched.has(key),
+      stop: () => this.store.off('deltas', onDeltas),
+    };
+  }
+
+  /** Inicia as reconciliações periódicas (após cada sincronização completa). */
+  private startPeriodic(): void {
+    this.stopPeriodic();
+    if (this.queueRefreshMs > 0) {
+      this.queueTimer = setInterval(() => void this.refreshQueues(), this.queueRefreshMs);
+    }
+    if (this.channelReconcileMs > 0) {
+      this.channelTimer = setInterval(() => void this.reconcileChannels(), this.channelReconcileMs);
+    }
+  }
+
+  private stopPeriodic(): void {
     clearInterval(this.queueTimer);
-    if (this.queueRefreshMs <= 0) return;
-    this.queueTimer = setInterval(() => void this.refreshQueues(), this.queueRefreshMs);
+    clearInterval(this.channelTimer);
+    this.queueTimer = undefined;
+    this.channelTimer = undefined;
   }
 
   private onEvent(ev: AmiMessage): void {

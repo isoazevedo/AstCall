@@ -1,7 +1,11 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { ServerPermissions, TokenClaims } from '@astcall/shared';
 import { ActionError, ActionService, type ActionTarget } from '../../src/actions/index.js';
 import { AmiActionError, AmiDisconnectedError } from '../../src/ami/types.js';
+import { AuditLog } from '../../src/audit/AuditLog.js';
 import type { AmiActionFields, AmiListResult, AmiMessage } from '../../src/ami/types.js';
 import { applyEvent } from '../../src/handlers/index.js';
 import { createLogger } from '../../src/logger.js';
@@ -511,5 +515,55 @@ describe('gestão de membros de fila (queue_manage)', () => {
         }),
       ),
     ).toBe('not_found');
+  });
+});
+
+describe('arquivo de auditoria (AUDIT_FILE)', () => {
+  it('grava uma linha JSON por ação, executada ou recusada', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'astcall-audit-'));
+    try {
+      const file = join(dir, 'sub', 'audit.jsonl'); // cria a pasta se não existir
+      const audit = new AuditLog(file, log);
+      const targets = new Map<string, ActionTarget>([
+        ['pbx1', { conn, store } as unknown as ActionTarget],
+      ]);
+      const svc = new ActionService(targets, log, undefined, audit);
+
+      await svc.execute(claims(ALL), 'pbx1', 'hangup', { uniqueid: uid('PJSIP/9001') });
+      await code(
+        svc.execute(claims({ pbx1: ['view'] }, 'bia'), 'pbx1', 'hangup', { uniqueid: 'x' }),
+      );
+      await audit.close();
+
+      const lines = readFileSync(file, 'utf8')
+        .trim()
+        .split(/\r?\n/)
+        .map((l) => JSON.parse(l));
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toMatchObject({
+        user: 'ana',
+        name: 'Ana',
+        iss: 'astcall',
+        server: 'pbx1',
+        action: 'hangup',
+        ok: true,
+        ami: ['Hangup'],
+      });
+      expect(new Date(lines[0].ts).getTime()).not.toBeNaN();
+      expect(lines[1]).toMatchObject({
+        user: 'bia',
+        action: 'hangup',
+        ok: false,
+        code: 'forbidden',
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('sem arquivo configurado não grava nada (e não quebra)', async () => {
+    const audit = new AuditLog(undefined, log);
+    expect(() => audit.write({} as never)).not.toThrow();
+    await audit.close();
   });
 });

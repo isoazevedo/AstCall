@@ -47,7 +47,7 @@ function serveList(action: string, completeEvent: string) {
   };
 }
 
-function start(options: { reloadDebounceMs?: number } = {}) {
+function start(options: { reloadDebounceMs?: number; channelReconcileMs?: number } = {}) {
   store = new ServerStore();
   conn = new AmiConnection(
     {
@@ -293,6 +293,71 @@ describe('Synchronizer', () => {
     expect(store.queues.get('suporte')?.completed).toBe(4);
     expect([...store.queueMembers.keys()]).toEqual(['suporte|PJSIP/9001']);
     expect([...store.queueEntries.keys()]).toEqual(['suporte|q2']);
+  });
+
+  it('reconciliação de canais: remove fantasmas, cria o que falta e não sobrescreve o que existe', async () => {
+    start({ channelReconcileMs: 0 });
+    await waitSynced(1);
+    const answeredBefore = store.channels.get('1.1')!.answeredAt;
+
+    // No Asterisk agora: o 1.2 desligou sem Hangup (evento perdido), a bridge b1 acabou sem
+    // BridgeDestroy, e existe o 1.3 cujo Newchannel se perdeu. Durante a consulta nasce o 1.4.
+    lists.BridgeList = 'empty-error';
+    lists.CoreShowChannels = [
+      {
+        Event: 'CoreShowChannel',
+        Channel: 'PJSIP/9001-00000001',
+        Uniqueid: '1.1',
+        Linkedid: '1.1',
+        ChannelStateDesc: 'Up',
+        Duration: '00:05:00', // o horário aproximado da lista não pode substituir o real
+      },
+      {
+        Event: 'CoreShowChannel',
+        Channel: 'PJSIP/9003-00000003',
+        Uniqueid: '1.3',
+        Linkedid: '1.3',
+        ChannelStateDesc: 'Ring',
+        Duration: '00:00:02',
+      },
+    ];
+    interleave.CoreShowChannels = [
+      0,
+      {
+        Event: 'Newchannel',
+        Channel: 'PJSIP/9004-00000004',
+        Uniqueid: '1.4',
+        Linkedid: '1.4',
+        ChannelStateDesc: 'Ring',
+      },
+    ];
+
+    const result = await sync.reconcileChannels();
+    expect(result).toEqual({
+      channelsAdded: 1,
+      channelsRemoved: 1,
+      bridgesAdded: 0,
+      bridgesRemoved: 1,
+    });
+    expect([...store.channels.keys()].sort()).toEqual(['1.1', '1.3', '1.4']);
+    expect(store.bridges.size).toBe(0);
+    expect(store.channels.get('1.1')).toMatchObject({ answeredAt: answeredBefore, bridgeId: null });
+    // A chamada do canal fantasma deixa de existir; a do 1.1 continua
+    expect(store.calls.has('1.1')).toBe(true);
+  });
+
+  it('reconciliação de canais sem divergência não altera nada', async () => {
+    start({ channelReconcileMs: 0 });
+    await waitSynced(1);
+    const before = JSON.stringify(store.snapshot());
+    const result = await sync.reconcileChannels();
+    expect(result).toEqual({
+      channelsAdded: 0,
+      channelsRemoved: 0,
+      bridgesAdded: 0,
+      bridgesRemoved: 0,
+    });
+    expect(JSON.stringify(store.snapshot())).toBe(before);
   });
 
   it('servidor sem o módulo de filas: sincroniza o resto normalmente', async () => {

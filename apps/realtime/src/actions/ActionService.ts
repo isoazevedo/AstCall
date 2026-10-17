@@ -10,6 +10,7 @@ import {
 } from '@astcall/shared';
 import { AmiActionError, AmiDisconnectedError, type AmiActionFields } from '../ami/index.js';
 import type { AmiConnection } from '../ami/AmiConnection.js';
+import type { AuditLog } from '../audit/AuditLog.js';
 import type { Logger } from '../logger.js';
 import type { ServerStore } from '../state/ServerStore.js';
 import { ScopeFilter } from '../state/visibility.js';
@@ -104,6 +105,8 @@ export class ActionService {
     private readonly targets: Map<ServerId, ActionTarget>,
     log: Logger,
     private readonly limit = { max: 20, windowMs: 10_000 },
+    /** Arquivo de auditoria (AUDIT_FILE). Opcional: sem ele, só o log geral. */
+    private readonly auditFile?: AuditLog,
   ) {
     this.audit = log.child({ mod: 'audit' });
   }
@@ -115,6 +118,17 @@ export class ActionService {
     params: unknown,
   ): Promise<void> {
     const who = { user: claims.sub, iss: claims.iss, server: serverId, action: name };
+    const record = (r: { ok: boolean; ami?: string[]; code?: string; error?: string }) =>
+      this.auditFile?.write({
+        ts: new Date().toISOString(),
+        user: claims.sub,
+        name: claims.name,
+        iss: claims.iss,
+        server: serverId,
+        action: name,
+        params,
+        ...r,
+      });
     try {
       const calls = await this.prepare(claims, serverId, name, params);
       const target = this.targets.get(serverId)!;
@@ -129,16 +143,16 @@ export class ActionService {
         }
         throw err;
       }
-      this.audit.info(
-        { ...who, params, ami: calls.map((c) => c.action).join(','), ok: true },
-        'Ação executada',
-      );
+      const ami = calls.map((c) => c.action);
+      this.audit.info({ ...who, params, ami: ami.join(','), ok: true }, 'Ação executada');
+      record({ ok: true, ami });
     } catch (err) {
       const code = err instanceof ActionError ? err.code : 'ami_error';
       this.audit.warn(
         { ...who, params, ok: false, code, err: (err as Error).message },
         'Ação recusada',
       );
+      record({ ok: false, code, error: (err as Error).message });
       if (err instanceof ActionError) throw err;
       throw new ActionError('ami_error', 'falha ao executar a ação');
     }

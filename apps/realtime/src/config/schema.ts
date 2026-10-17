@@ -19,6 +19,11 @@ export const envSchema = z.object({
 
   // Se definido, grava todo o tráfego AMI recebido nesta pasta (para fixtures de teste)
   AMI_RECORD_DIR: z.string().min(1).optional(),
+  /** Arquivo de auditoria das ações (JSON por linha). Vazio = só no log geral. */
+  AUDIT_FILE: z.string().min(1).optional(),
+  /** Intervalos das reconciliações periódicas (ms); 0 desliga. */
+  QUEUE_REFRESH_MS: z.coerce.number().int().min(0).default(60_000),
+  CHANNEL_RECONCILE_MS: z.coerce.number().int().min(0).default(60_000),
 
   AUTH_MODE: z.enum(['local', 'external', 'both']).default('local'),
   JWT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),

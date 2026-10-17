@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "keys:generate": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/keys-generate.ts",
-    "user": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/users.ts"
+    "user": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/users.ts",
+    "audit": "tsx --disable-warning=ExperimentalWarning --conditions=development scripts/audit.ts"
   },
   "dependencies": {
     "@astcall/shared": "*",

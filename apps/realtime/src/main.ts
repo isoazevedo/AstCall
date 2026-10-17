@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { PROTOCOL_VERSION, WS_PATH } from '@astcall/shared';
 import { ActionService, type ActionTarget } from './actions/index.js';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
+import { AuditLog } from './audit/AuditLog.js';
 import { authRoutes, LocalIssuer, TokenVerifier, UserRepository } from './auth/index.js';
 import { ConfigError, loadConfig, localAuthEnabled, type AppConfig } from './config/index.js';
 import { createHttpServer, type RouteHandler } from './http/server.js';
@@ -74,7 +75,11 @@ async function main(): Promise<void> {
     // A cada conexão, o Synchronizer zera o estado e o reconstrói com as listas do AMI;
     // ele também aplica os eventos ao vivo ao store.
     const conn = new AmiConnection(server, log);
-    const sync = new Synchronizer(conn, store, log); // registra-se como onConnected da conexão
+    // registra-se como onConnected da conexão
+    const sync = new Synchronizer(conn, store, log, {
+      queueRefreshMs: config.queueRefreshMs,
+      channelReconcileMs: config.channelReconcileMs,
+    });
     feeds.set(server.id, new ServerFeed(server.id, server.name, { store, sync, conn }));
     actionTargets.set(server.id, { conn, store });
     store.on('deltas', (ops) =>
@@ -96,7 +101,9 @@ async function main(): Promise<void> {
   // Web Component para o AzCall (e qualquer página que queira embutir o painel)
   Object.assign(routes, staticRoutes(config.staticDir, ['ast-monitor.js']));
   const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
-  const actions = new ActionService(actionTargets, log);
+  const auditLog = new AuditLog(config.auditFile, log);
+  if (config.auditFile) log.info({ file: config.auditFile }, 'Auditoria das ações em arquivo');
+  const actions = new ActionService(actionTargets, log, undefined, auditLog);
   const hub = new Hub(feeds, verifier, log, { actions });
   hub.attach(http);
   http.listen(config.http.port, config.http.host, () => {
@@ -118,6 +125,7 @@ async function main(): Promise<void> {
     http.close();
     await Promise.allSettled(connections.map((c) => c.stop()));
     await Promise.allSettled(recorders.map((r) => r.close()));
+    await auditLog.close();
     users?.close();
     process.exit(0);
   };

@@ -20,7 +20,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "keys:generate": "npm run keys:generate -w @astcall/realtime --",
-    "user": "npm run user -w @astcall/realtime --"
+    "user": "npm run user -w @astcall/realtime --",
+    "audit": "npm run audit -w @astcall/realtime --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

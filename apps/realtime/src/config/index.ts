@@ -23,6 +23,9 @@ export interface AppConfig {
   servers: AmiServerConfig[];
   /** Pasta de gravação do tráfego AMI (desligado quando indefinido). */
   amiRecordDir: string | undefined;
+  auditFile: string | undefined;
+  queueRefreshMs: number;
+  channelReconcileMs: number;
   /** Pasta do Web Component compilado. */
   staticDir: string;
   auth: AuthConfig;
@@ -125,6 +128,9 @@ export function buildConfig(
     http: { host: env.HTTP_HOST, port: env.HTTP_PORT, trustProxy: env.TRUST_PROXY },
     servers,
     amiRecordDir: env.AMI_RECORD_DIR ? resolvePath(rootDir, env.AMI_RECORD_DIR) : undefined,
+    auditFile: env.AUDIT_FILE ? resolvePath(rootDir, env.AUDIT_FILE) : undefined,
+    queueRefreshMs: env.QUEUE_REFRESH_MS,
+    channelReconcileMs: env.CHANNEL_RECONCILE_MS,
     staticDir: resolvePath(rootDir, env.STATIC_DIR),
     auth: buildAuth(env, rootDir),
   };
@@ -175,6 +181,13 @@ function loadDotEnv(): void {
 export function loadConfig(): AppConfig {
   loadDotEnv();
   return buildConfig(process.env, (p) => readFileSync(p, 'utf8'));
+}
+
+/** Só o arquivo de auditoria (para o script de consulta, sem exigir o AMI). */
+export function loadAuditFile(): string | undefined {
+  loadDotEnv();
+  const env = parseEnv(process.env);
+  return env.AUDIT_FILE ? resolvePath(ROOT_DIR, env.AUDIT_FILE) : undefined;
 }
 
 /** Só a configuração de autenticação (para os scripts de usuários e chaves, sem exigir o AMI). */
