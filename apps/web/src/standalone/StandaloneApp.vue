@@ -4,13 +4,16 @@
  * - "checking": verificando se já existe sessão (cookie de renovação);
  * - "login": mostra o formulário;
  * - "app": mostra a barra superior + o <ast-monitor> (ou só o <ast-monitor> no modo TV).
+ *   Com a permissão "users", a barra tem o link "Usuários" (endereço #usuarios).
  *
  * Conceito: `v-if` / `v-else-if` / `v-else` mostram um bloco ou outro conforme a condição.
  */
-import { onMounted, ref } from 'vue';
-import { LogOut, Tv } from 'lucide-vue-next';
-import type { TokenResponse } from '@astcall/shared';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { LayoutDashboard, LogOut, Tv, Users } from 'lucide-vue-next';
+import type { LoginResponse } from '@astcall/shared';
 import LoginView from './LoginView.vue';
+import { decodeToken, refresh, setSession, type SessionInfo } from './session';
+import UsersView from './UsersView.vue';
 
 const view = ref<'checking' | 'login' | 'app'>('checking');
 
@@ -20,27 +23,24 @@ const tv = params.has('tv');
 /** "?widgets": página de demonstração dos widgets (<ast-filas>, <ast-chamadas>, <ast-ramais>). */
 const widgets = params.has('widgets');
 const rotate = params.get('rotate') ?? undefined;
-const userName = ref('');
+const me = ref<SessionInfo>({ sub: '', name: '', perms: [] });
+const canManageUsers = computed(() => me.value.perms.includes('users'));
 
-/** Lê o nome de exibição do token (só para mostrar; quem valida é o backend). */
-function nameFromToken(token: string): string {
-  try {
-    // base64url → bytes → texto UTF-8 (atob sozinho trata os bytes como Latin-1 e quebra acentos)
-    const b64 = token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/');
-    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-    const payload = JSON.parse(new TextDecoder().decode(bytes));
-    return payload.name || payload.sub || '';
-  } catch {
-    return '';
-  }
+/** Página atual pelo endereço: "#usuarios" = tela de usuários; o resto = painel. */
+const page = ref(pageFromHash());
+function pageFromHash(): 'monitor' | 'users' {
+  return window.location.hash === '#usuarios' ? 'users' : 'monitor';
 }
+const onHash = () => (page.value = pageFromHash());
+onMounted(() => window.addEventListener('hashchange', onHash));
+onUnmounted(() => window.removeEventListener('hashchange', onHash));
 
 onMounted(async () => {
   // Já existe sessão? O refresh responde 200 com um token se o cookie for válido.
   try {
-    const res = await fetch('/auth/refresh', { method: 'POST', credentials: 'same-origin' });
-    if (res.ok) {
-      userName.value = nameFromToken(((await res.json()) as TokenResponse).token);
+    const t = await refresh();
+    if (t) {
+      me.value = decodeToken(t.token);
       view.value = 'app';
       return;
     }
@@ -50,13 +50,15 @@ onMounted(async () => {
   view.value = 'login';
 });
 
-function onLoggedIn(name: string): void {
-  userName.value = name;
+function onLoggedIn(res: LoginResponse): void {
+  setSession({ token: res.token, expiresAt: res.expiresAt });
+  me.value = decodeToken(res.token);
   view.value = 'app';
 }
 
 async function logout(): Promise<void> {
   await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+  setSession(null);
   view.value = 'login';
 }
 </script>
@@ -80,7 +82,16 @@ async function logout(): Promise<void> {
     <nav class="navbar">
       <div class="brand"><span class="logo">A</span> AstCall</div>
       <div class="user">
-        <span>{{ userName }}</span>
+        <span>{{ me.name }}</span>
+        <!-- Alterna entre o painel e a tela de usuários (só para quem tem a permissão "users") -->
+        <template v-if="canManageUsers">
+          <a v-if="page === 'users'" href="#" class="btn-ghost btn-nav" title="Voltar ao painel">
+            <LayoutDashboard :size="18" aria-hidden="true" /> Painel
+          </a>
+          <a v-else href="#usuarios" class="btn-ghost btn-nav" title="Gerenciar usuários">
+            <Users :size="18" aria-hidden="true" /> Usuários
+          </a>
+        </template>
         <!-- Abre o modo TV numa nova aba (para levar à TV/monitor da equipe) -->
         <a href="/?tv" target="_blank" class="btn-ghost btn-tv" title="Abrir o modo TV">
           <Tv :size="18" aria-hidden="true" /> Modo TV
@@ -94,7 +105,10 @@ async function logout(): Promise<void> {
       Demonstração dos widgets: exemplo de tela montada sob medida. Os três elementos
       compartilham uma única conexão WebSocket. Os ramais estão em modo só leitura.
     -->
-    <main v-if="widgets" class="content demo">
+    <main v-if="page === 'users' && canManageUsers" class="content">
+      <UsersView :me="me.sub" @session-expired="logout" />
+    </main>
+    <main v-else-if="widgets" class="content demo">
       <section>
         <h5 class="demo-title">&lt;ast-chamadas&gt;</h5>
         <ast-chamadas ws-url="/monitor-ws" token-url="/auth/refresh" @auth-required="logout" />
@@ -191,10 +205,12 @@ async function logout(): Promise<void> {
   background: rgba(var(--bs-danger-rgb), 0.12);
   color: var(--bs-danger);
 }
-.btn-ghost.btn-tv {
+.btn-ghost.btn-tv,
+.btn-ghost.btn-nav {
   text-decoration: none;
 }
-.btn-ghost.btn-tv:hover {
+.btn-ghost.btn-tv:hover,
+.btn-ghost.btn-nav:hover {
   background: rgba(var(--bs-primary-rgb), 0.12);
   color: var(--bs-primary);
 }

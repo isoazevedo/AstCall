@@ -3,7 +3,13 @@ import { PROTOCOL_VERSION, WS_PATH } from '@astcall/shared';
 import { ActionService, type ActionTarget } from './actions/index.js';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { AuditLog } from './audit/AuditLog.js';
-import { authRoutes, LocalIssuer, TokenVerifier, UserRepository } from './auth/index.js';
+import {
+  adminRoutes,
+  authRoutes,
+  LocalIssuer,
+  TokenVerifier,
+  UserRepository,
+} from './auth/index.js';
 import { ConfigError, loadConfig, localAuthEnabled, type AppConfig } from './config/index.js';
 import { createHttpServer, type RouteHandler } from './http/server.js';
 import { staticRoutes } from './http/static.js';
@@ -39,6 +45,10 @@ async function main(): Promise<void> {
     'AstCall realtime iniciado',
   );
 
+  // ---- Auditoria das ações (painel e administração de usuários)
+  const auditLog = new AuditLog(config.auditFile, log);
+  if (config.auditFile) log.info({ file: config.auditFile }, 'Auditoria das ações em arquivo');
+
   // ---- Autenticação: valida tokens dos emissores configurados; emite no modo standalone
   let users: UserRepository | undefined;
   let verifier: TokenVerifier;
@@ -50,9 +60,22 @@ async function main(): Promise<void> {
       users = await UserRepository.open(config.auth.local.usersDbFile);
       const issuer = await LocalIssuer.create(config.auth);
       Object.assign(routes, authRoutes({ users, issuer, config: config.auth, log }));
-      if (users.listUsers().length === 0) {
+      Object.assign(
+        routes,
+        adminRoutes({
+          users,
+          verifier,
+          localIssuer: config.auth.local.issuer,
+          log,
+          audit: auditLog,
+        }),
+      );
+      const all = users.listUsers();
+      if (all.length === 0) {
+        log.warn('Nenhum usuário cadastrado. Crie um com: npm run user add <usuario>');
+      } else if (!all.some((u) => u.active && u.perms['*']?.includes('users'))) {
         log.warn(
-          'Nenhum usuário cadastrado. Crie um com: npm run user -- add <usuario> --perms all',
+          'Nenhum usuário pode gerenciar usuários pela tela. Conceda com: npm run user perms <usuario> (responda "all")',
         );
       }
     }
@@ -101,8 +124,6 @@ async function main(): Promise<void> {
   // Web Component para o AzCall (e qualquer página que queira embutir o painel)
   Object.assign(routes, staticRoutes(config.staticDir, ['ast-monitor.js']));
   const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
-  const auditLog = new AuditLog(config.auditFile, log);
-  if (config.auditFile) log.info({ file: config.auditFile }, 'Auditoria das ações em arquivo');
   const actions = new ActionService(actionTargets, log, undefined, auditLog);
   const hub = new Hub(feeds, verifier, log, { actions });
   hub.attach(http);

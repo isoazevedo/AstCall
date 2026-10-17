@@ -131,6 +131,13 @@ export class UserRepository {
     this.revokeSessionsOf(username); // troca de senha encerra as sessões abertas
   }
 
+  setName(username: string, name: string): void {
+    this.mustChange(
+      this.db.prepare('UPDATE users SET name = ? WHERE username = ?').run(name, username),
+      username,
+    );
+  }
+
   setPerms(username: string, perms: ServerPermissions): void {
     const parsed = permsInputSchema.parse(perms);
     this.mustChange(

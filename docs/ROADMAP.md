@@ -38,6 +38,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 19  | **Reconciliação e auditoria (item 15)** | Canais e bridges reconciliados a cada 60 s (fantasmas removidos, perdidos criados, sem sobrescrever o que existe); auditoria das ações em arquivo JSON por linha com `npm run audit` e logrotate.                                                                                                                                                                                                                                                                                                                            | ✅ Produção    |
 | 20  | **Replay e carga (item 21)**            | Replay das 12 gravações com verificação snapshot + deltas = estado do servidor; `npm run load-test` com PBX e navegadores simulados; medidas em `docs/CARGA.md` (2000 ramais/~830 chamadas/150 navegadores: 8% do event loop; recorte por empresa é o custo dominante → item 25).                                                                                                                                                                                                                                            | ✅ Produção    |
 | 21  | **Widgets (item 18)**                   | `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` no mesmo bundle, com uma conexão por página, filtros por atributo e `readonly`; demonstração em `/?widgets`; contrato 1.3.                                                                                                                                                                                                                                                                                                                                                   | ✅ Produção    |
+| 22  | **Usuários pela tela (item 17)**        | Tela "Usuários" no standalone com a permissão nova `users`: criar, editar permissões, trocar senha, ativar/desativar e remover, com proteções (não se autodesativar, sempre um administrador) e auditoria; `npm run user add` interativo.                                                                                                                                                                                                                                                                                    | ✅ Produção    |
 
 ---
 
@@ -477,11 +478,20 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 17. Gestão de usuários pela interface (modo standalone)
+#### 17. Gestão de usuários pela interface (modo standalone) — ✅
 
-**O que é:** Telas para cadastrar usuários e permissões por servidor, substituindo o comando de linha.
+**O que é:** Telas para cadastrar usuários e permissões, substituindo o comando de linha.
 
 **Por que fazer:** Facilita a operação do modo standalone sem acesso ao servidor.
+
+**Escopo:**
+
+- [x] API `/admin/users` (listar, criar, alterar nome/permissões/situação, trocar senha, remover), autorizada por token do próprio AstCall de um usuário **ativo com a permissão `users` no banco** (desativar tira o acesso na hora; tokens do AzCall nunca administram)
+- [x] Proteções: ninguém desativa, remove ou tira a própria permissão `users`; sempre sobra um administrador ativo; senha mínima de 10 caracteres; trocar senha ou desativar encerra as sessões
+- [x] Auditoria das operações (`userCreate`, `userUpdate`, `userPassword`, `userRemove`), sem senhas
+- [x] Tela "Usuários" na SPA (`#usuarios`), visível para quem tem `users`; permissões valem para todos os servidores (decisão de 2026-10-17)
+- [x] `npm run user add <usuario>` interativo (funciona no PowerShell, que remove o `--`)
+- [x] Produção do standalone: o proxy precisa repassar `/admin` ao backend, como já faz com `/auth`
 
 **Esforço estimado:** M
 **Impacto esperado:** Médio
@@ -662,3 +672,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Item 15 ativado e validado no laboratório (auditoria em arquivo; reconciliação sem falsos positivos)                                                                                                |
 | 2026-10-17 | Claude Code | Item 21 implementado (replay + carga simulada, `docs/CARGA.md`); novo item 25 (recorte por escopo incremental)                                                                                      |
 | 2026-10-17 | Claude Code | Item 18 implementado (widgets com conexão compartilhada e `readonly`); uso no AzCall fica para depois                                                                                               |
+| 2026-10-17 | Claude Code | Item 17 implementado (usuários pela tela, permissão `users`); credencial SIP removida do histórico das gravações e repositórios publicados no GitHub                                                |

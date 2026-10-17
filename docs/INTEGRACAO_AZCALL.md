@@ -66,6 +66,8 @@ define `--ast-card-bg` (o tema não expõe a cor do card na raiz) — ver `views
 `astcall.view → view`, `astcall.hangup → hangup`, `astcall.transfer → transfer`,
 `astcall.originate → originate`, `astcall.spy → spy`, `astcall.queue → queue` (pausar/retomar),
 `astcall.queue_manage → queue_manage` (adicionar/remover membros dinâmicos e alterar penalidade).
+A permissão `users` (gerenciar usuários) só existe no modo standalone: o AzCall não a emite e,
+mesmo que emita, a API de usuários recusa tokens que não sejam do próprio AstCall.
 `super_admin` recebe todas.
 
 **Permissões desconhecidas** no token são ignoradas pelo AstCall (o token continua válido).

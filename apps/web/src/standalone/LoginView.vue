@@ -8,7 +8,7 @@
 import { ref } from 'vue';
 import type { LoginResponse } from '@astcall/shared';
 
-const emit = defineEmits<{ 'logged-in': [name: string] }>();
+const emit = defineEmits<{ 'logged-in': [response: LoginResponse] }>();
 
 const username = ref('');
 const password = ref('');
@@ -28,7 +28,7 @@ async function submit(): Promise<void> {
     if (res.ok) {
       const body = (await res.json()) as LoginResponse;
       password.value = '';
-      emit('logged-in', body.user.name || body.user.username);
+      emit('logged-in', body);
       return;
     }
     const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;

@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => ({
     // Em desenvolvimento, encaminha HTTP e WebSocket para o backend (mesmo domínio, sem CORS)
     proxy: {
       '/auth': 'http://127.0.0.1:8090',
+      '/admin': 'http://127.0.0.1:8090',
       '/monitor-ws': { target: 'ws://127.0.0.1:8090', ws: true },
     },
   },

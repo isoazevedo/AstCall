@@ -14,9 +14,24 @@ export const PERMISSIONS = [
   'queue', // pausar / retomar membros de fila
   'queue_manage', // adicionar / remover membros de fila e alterar penalidade
   'conference', // gerenciar conferências ConfBridge
+  'users', // gerenciar os usuários do modo standalone (só tokens do próprio AstCall)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
+
+/** Rótulos em português das permissões (telas de usuários). */
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  view: 'Ver o painel',
+  originate: 'Ligar a partir de um ramal',
+  hangup: 'Desligar chamadas',
+  transfer: 'Transferir chamadas',
+  spy: 'Escutar / sussurrar / intervir',
+  record: 'Gravar chamadas',
+  queue: 'Pausar membros de fila',
+  queue_manage: 'Adicionar/remover membros de fila',
+  conference: 'Gerenciar conferências',
+  users: 'Gerenciar usuários',
+};
 
 /** Chave curinga em `perms`: as permissões valem para todos os servidores. */
 export const ALL_SERVERS = '*';
@@ -93,4 +108,14 @@ export interface ServerScope {
 /** Resposta do `POST /auth/login` do modo standalone. */
 export interface LoginResponse extends TokenResponse {
   user: { username: string; name: string; perms: ServerPermissions };
+}
+
+/** Usuário do modo standalone, como a tela de usuários recebe (`GET /admin/users`). */
+export interface AdminUser {
+  username: string;
+  name: string;
+  /** Permissões em todos os servidores (chave "*"). */
+  perms: Permission[];
+  active: boolean;
+  createdAt: number;
 }
