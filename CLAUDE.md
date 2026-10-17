@@ -62,7 +62,7 @@ reference/       # MonAst original — apenas referência, fora do git
 
 - O núcleo do painel é compilado como **Web Component** (`defineCustomElement` do Vue 3, build em modo biblioteca do Vite):
   ```html
-  <ast-monitor ws-url="/monitor-ws" token-url="/azcall/monitor/token"></ast-monitor>
+  <ast-monitor ws-url="/astcall/monitor-ws" token-url="/astcall/token"></ast-monitor>
   ```
 - Prefixo de tags neutro (`ast-`), pois o produto também vive sem o AzCall.
 - Usar **Shadow DOM** para isolar o CSS; permitir personalização visual por **variáveis CSS** (cores, fontes).
@@ -83,7 +83,7 @@ reference/       # MonAst original — apenas referência, fora do git
 - Claims mínimas: `sub`, `name`, `iss`, `exp` e **permissões por servidor**, ex.: `perms: { "pbx1": ["hangup", "spy"], "pbx2": ["queue"] }`.
 - Validade **curta** (5–15 min). O componente renova o token via `token-url` antes de expirar e ao reconectar. Uma permissão removida só deixa de valer quando o token expira.
 - **WebSocket:** o navegador não envia cabeçalho `Authorization` no handshake e token em query string vaza em logs. A **primeira mensagem** do cliente deve ser `{ "t": "auth", "token": "..." }`; sem autenticação válida em poucos segundos, o servidor fecha a conexão. Toda ação revalida a permissão no backend.
-- **Mesmo domínio:** o Node fica atrás do mesmo Nginx/Apache do AzCall (ex.: `/monitor-ws` com proxy, cabeçalhos `Upgrade`/`Connection` e `proxy_read_timeout` alto), evitando CORS e problemas de certificado.
+- **Mesmo domínio:** o Node fica atrás do mesmo Nginx/Apache do AzCall (`/astcall/monitor-ws` e `/astcall/static/` com proxy; contrato em `docs/INTEGRACAO_AZCALL.md`, cabeçalhos `Upgrade`/`Connection` e `proxy_read_timeout` alto), evitando CORS e problemas de certificado.
 
 ## Pasta de referência: `reference/monast/`
 
