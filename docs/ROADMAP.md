@@ -35,7 +35,7 @@ O AstCall é um painel de monitoramento em tempo real para **Asterisk 22**, insp
 | 16  | **Integração AzCall (item 16)**         | Token RS256 emitido pelo AzCall (`AstCallTokenService`) com permissões `astcall.*` e escopo multi-empresa; snapshot/deltas/ações recortados por empresa; página `/astcall`, módulo liga/desliga em /config, menu; AstCall no servidor do laboratório (PM2 + proxy Apache em `/astcall/`). Teste de contrato OK (admin vê 12 endpoints/3 filas; super_admin vê 24/5). Validado no navegador: super_admin vê tudo; admin da empresa Avoip vê só o ramal 7100 (exatamente o cadastro). Contrato em `docs/INTEGRACAO_AZCALL.md`. | ✅ Produção    |
 | 17  | **Modo TV (item 24)**                   | `<ast-monitor mode="tv">`: wallboard escuro, só leitura, letras grandes; telas Filas (aguardando, maior espera ao vivo, atendidas, abandono, NS, agentes) e Chamadas (chamadas em curso + mapa de ramais); rodízio a cada 15 s (atributo `rotate`) que o usuário liga/desliga na própria tela, com a escolha salva no navegador; tela cheia. AzCall: `/astcall/tv` e botão "Modo TV"; standalone: `/?tv`.                                                                                                                    | ✅ Produção    |
 | 18  | **Membros de fila (item 13)**           | Adicionar membro dinâmico, remover (só dinâmico) e alterar penalidade pelo painel, com a permissão nova `queue_manage` e escopo por empresa; membros fixos (cadastro do AzCall) identificados na tela. Ações em menu "⋮" (também nas chamadas). Validado no laboratório. Conferências fora (item 10 pausado).                                                                                                                                                                                                                | ✅ Produção    |
-| 19  | **Reconciliação e auditoria (item 15)** | Canais e bridges reconciliados a cada 60 s (fantasmas removidos, perdidos criados, sem sobrescrever o que existe); auditoria das ações em arquivo JSON por linha com `npm run audit` e logrotate.                                                                                                                                                                                                                                                                                                                            | 🔄 Homologação |
+| 19  | **Reconciliação e auditoria (item 15)** | Canais e bridges reconciliados a cada 60 s (fantasmas removidos, perdidos criados, sem sobrescrever o que existe); auditoria das ações em arquivo JSON por linha com `npm run audit` e logrotate.                                                                                                                                                                                                                                                                                                                            | ✅ Produção    |
 
 ---
 
@@ -420,7 +420,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
-#### 15. Reconciliação periódica e auditoria — 🔄
+#### 15. Reconciliação periódica e auditoria — ✅
 
 **O que é:** Verificação periódica leve do estado e registro de todas as ações executadas.
 
@@ -432,7 +432,7 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 - [x] Reconciliação das filas (item 9) agora configurável (`QUEUE_REFRESH_MS`)
 - [x] Auditoria em arquivo (`AUDIT_FILE`, JSON por linha): usuário, nome, emissor, servidor, ação, parâmetros, actions AMI, resultado; `npm run audit` para consultar; rotação com logrotate (`docs/AUDITORIA.md`)
 - [ ] Auditoria no log de atividades do AzCall — adiado (decisão de 2026-10-17: só arquivo por enquanto)
-- [ ] Ativar no laboratório e observar
+- [x] Ativado no laboratório (`AUDIT_FILE=/var/log/astcall/audit.jsonl`, logrotate semanal/52): pausa e retomada do 9001 pelo AzCall gravadas com usuário, motivo e action AMI; reconciliação rodando sem falsos positivos
 
 **Arquivos envolvidos:**
 
@@ -627,3 +627,4 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Item 13 (filas) validado no laboratório; ações de membro e de chamada passam para um menu "⋮"                                                                                                       |
 | 2026-10-17 | Claude Code | `eventfilter` aplicado ao usuário `astcall` no laboratório (+`EndpointDetail`); listas da sincronização verificadas com o filtro ativo                                                              |
 | 2026-10-17 | Claude Code | Item 15 implementado (reconciliação de canais/bridges e auditoria em arquivo)                                                                                                                       |
+| 2026-10-17 | Claude Code | Item 15 ativado e validado no laboratório (auditoria em arquivo; reconciliação sem falsos positivos)                                                                                                |
