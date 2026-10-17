@@ -4,6 +4,9 @@
  *
  * Conceitos: `v-for` repete um trecho para cada item; o `:key` identifica cada linha para
  * o Vue atualizar só o que mudou (sem recriar a lista inteira a cada delta).
+ *
+ * As ações (escutar, transferir, desligar) são de cada participante e ficam no menu "⋮"
+ * ao lado do número; só aparecem as que o usuário pode usar naquela situação.
  */
 import {
   ArrowLeftRight,
@@ -15,6 +18,7 @@ import {
   PhoneOff,
 } from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
+import ActionMenu, { type MenuItem } from './ActionMenu.ce.vue';
 import { formatDuration, type CallView, type Party } from '../lib/view';
 import { useMonitorStore } from '../stores/monitor';
 
@@ -22,6 +26,40 @@ defineProps<{ calls: CallView[]; loading: boolean }>();
 
 const store = useMonitorStore();
 const partyLabel = (p: Party) => (p.name ? `${p.num} (${p.name})` : p.num);
+
+/** Opções do menu de um participante, conforme permissões e situação da chamada. */
+function partyActions(call: CallView, p: Party): MenuItem[] {
+  const target = { uniqueid: p.uniqueid, label: partyLabel(p) };
+  const items: MenuItem[] = [];
+  if (
+    store.can('spy') &&
+    !call.spyTarget &&
+    (call.status === 'talking' || call.status === 'held')
+  ) {
+    items.push({
+      label: `Escutar ${p.num}`,
+      hint: 'ouvir, sussurrar ou intervir',
+      icon: Headphones,
+      run: () => store.openDialog({ kind: 'spy', ...target }),
+    });
+  }
+  if (store.can('transfer') && call.status === 'talking') {
+    items.push({
+      label: `Transferir ${p.num}`,
+      icon: PhoneForwarded,
+      run: () => store.openDialog({ kind: 'transfer', ...target }),
+    });
+  }
+  if (store.can('hangup')) {
+    items.push({
+      label: `Desligar ${p.num}`,
+      icon: PhoneOff,
+      tone: 'danger',
+      run: () => store.openDialog({ kind: 'hangup', ...target }),
+    });
+  }
+  return items;
+}
 
 const now = useNow();
 
@@ -57,62 +95,15 @@ function duration(call: CallView): string {
                 <template v-for="(p, i) in call.parties" :key="p.uniqueid">
                   <ArrowLeftRight v-if="i > 0" :size="14" class="link" aria-label="ligado a" />
                   <span class="party">
-                    <strong>{{ p.num }}</strong>
-                    <small v-if="p.name">{{ p.name }}</small>
-                    <span class="party-actions">
-                      <button
-                        v-if="
-                          store.can('spy') &&
-                          !call.spyTarget &&
-                          (call.status === 'talking' || call.status === 'held')
-                        "
-                        type="button"
-                        class="icon-btn"
-                        :title="`Escutar ${p.num}`"
-                        :aria-label="`Escutar ${p.num}`"
-                        @click="
-                          store.openDialog({
-                            kind: 'spy',
-                            uniqueid: p.uniqueid,
-                            label: partyLabel(p),
-                          })
-                        "
-                      >
-                        <Headphones :size="14" />
-                      </button>
-                      <button
-                        v-if="store.can('transfer') && call.status === 'talking'"
-                        type="button"
-                        class="icon-btn"
-                        :title="`Transferir ${p.num}`"
-                        :aria-label="`Transferir ${p.num}`"
-                        @click="
-                          store.openDialog({
-                            kind: 'transfer',
-                            uniqueid: p.uniqueid,
-                            label: partyLabel(p),
-                          })
-                        "
-                      >
-                        <PhoneForwarded :size="14" />
-                      </button>
-                      <button
-                        v-if="store.can('hangup')"
-                        type="button"
-                        class="icon-btn danger"
-                        :title="`Desligar ${p.num}`"
-                        :aria-label="`Desligar ${p.num}`"
-                        @click="
-                          store.openDialog({
-                            kind: 'hangup',
-                            uniqueid: p.uniqueid,
-                            label: partyLabel(p),
-                          })
-                        "
-                      >
-                        <PhoneOff :size="14" />
-                      </button>
+                    <span class="party-id">
+                      <strong>{{ p.num }}</strong>
+                      <small v-if="p.name">{{ p.name }}</small>
                     </span>
+                    <ActionMenu
+                      v-if="partyActions(call, p).length"
+                      :items="partyActions(call, p)"
+                      :label="`Ações de ${p.num}`"
+                    />
                   </span>
                 </template>
               </div>
@@ -194,36 +185,13 @@ function duration(call: CallView): string {
 }
 .party {
   display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.party-id {
+  display: inline-flex;
   flex-direction: column;
   line-height: 1.2;
-}
-.party-actions {
-  display: inline-flex;
-  gap: 0.25rem;
-  margin-top: 0.3rem;
-}
-.icon-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border: 0;
-  border-radius: var(--ast-radius);
-  background: rgba(var(--ast-primary-rgb), 0.12);
-  color: var(--ast-primary);
-  cursor: pointer;
-}
-.icon-btn:hover {
-  background: var(--ast-primary);
-  color: #fff;
-}
-.icon-btn.danger {
-  background: rgba(var(--ast-danger-rgb), 0.12);
-  color: var(--ast-danger);
-}
-.icon-btn.danger:hover {
-  background: var(--ast-danger);
-  color: #fff;
 }
 .party strong {
   color: var(--ast-heading);
