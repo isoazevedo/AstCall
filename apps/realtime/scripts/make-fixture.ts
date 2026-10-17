@@ -7,6 +7,7 @@
  * - Recorta o intervalo de horário (hora local da máquina).
  * - Descarta eventos irrelevantes para o painel e eventos de segurança.
  * - Substitui IPs por endereços de documentação (192.0.2.0/24), de forma consistente.
+ * - Mascara credenciais (ex.: `Password` da resposta do PJSIPShowEndpoint) como "REDACTED".
  *
  * Revise a saída antes de versionar: nomes e números de clientes reais também devem ser trocados.
  */
@@ -46,6 +47,9 @@ const anonymize = (v: string) =>
     return ips.get(ip)!;
   });
 
+/** Campos com credenciais: nunca vão para o repositório. */
+const SECRET = /^(password|md5cred|secret|.*secret|.*token)$/i;
+
 const out: string[] = [];
 for (const raw of readFileSync(input, 'utf8').trim().split('\n')) {
   const line = JSON.parse(raw) as RecordLine;
@@ -60,7 +64,7 @@ for (const raw of readFileSync(input, 'utf8').trim().split('\n')) {
   const clean: Record<string, string> = {};
   for (const [k, v] of Object.entries(msg)) {
     if (k === 'privilege' || k === 'actionid') continue;
-    clean[k] = anonymize(v);
+    clean[k] = SECRET.test(k) && v !== '' ? 'REDACTED' : anonymize(v);
   }
   out.push(JSON.stringify({ t: line.t, msg: clean }));
 }
