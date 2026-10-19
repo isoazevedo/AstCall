@@ -1,0 +1,58 @@
+name: Encontrei um problema
+description: Algo não funciona como deveria no AstCall.
+title: '[Problema] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por testar o AstCall! Antes de enviar, **remova senhas, IPs públicos e números de
+        clientes** de logs e prints — esta página é pública.
+  - type: textarea
+    id: o-que-aconteceu
+    attributes:
+      label: O que aconteceu?
+      description: O que você fez, o que esperava e o que viu.
+      placeholder: 'Abri a aba Filas e o tempo de espera ficou parado em 0:00...'
+    validations:
+      required: true
+  - type: textarea
+    id: como-reproduzir
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Faço uma ligação para a fila suporte
+        2. Abro a aba Filas
+        3. ...
+  - type: dropdown
+    id: modo
+    attributes:
+      label: Modo de uso
+      options:
+        - Standalone (login próprio do AstCall)
+        - Integrado ao AzCall
+        - Demonstração (npm run demo)
+    validations:
+      required: true
+  - type: dropdown
+    id: asterisk
+    attributes:
+      label: Versão do Asterisk
+      options:
+        - Asterisk 20
+        - Asterisk 22
+        - Outra (escreva abaixo)
+        - Não sei / demonstração
+    validations:
+      required: true
+  - type: input
+    id: navegador
+    attributes:
+      label: Navegador e sistema
+      placeholder: 'Chrome 130 no Windows 11'
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs ou prints (opcional)
+      description: 'Ex.: saída de `pm2 logs astcall` ou erros do console do navegador (F12).'
+      render: shell

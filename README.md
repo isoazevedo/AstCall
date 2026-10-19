@@ -1,11 +1,40 @@
-# AstCall
+# AstCall — monitor em tempo real para Asterisk
+
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg)](LICENSE)
+![Asterisk 20 | 22](https://img.shields.io/badge/Asterisk-20%20%7C%2022-orange.svg)
+![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933.svg)
+[![Dê seu feedback](https://img.shields.io/badge/d%C3%AA%20seu-feedback-brightgreen.svg)](https://github.com/isoazevedo/AstCall/discussions/1)
 
 **Painel de monitoramento em tempo real para Asterisk 20 e 22.** Mostra ramais, chamadas e filas
 no instante em que acontecem e permite agir sobre elas — desligar, transferir, escutar, pausar
-atendentes — direto do navegador.
+atendentes — direto do navegador. Uma alternativa moderna ao MonAst, com PJSIP, filas, modo TV
+(wallboard) e multiempresa.
 
 Funciona sozinho (**standalone**, com login próprio) ou como **módulo do AzCall**, usando o login e
 as permissões de cada empresa.
+
+![Painel do AstCall atualizando em tempo real](docs/img/astcall-ao-vivo.gif)
+
+> **Está testando? Sua opinião vale muito.** Conte o que achou, o que faltou ou o que poderia ser
+> mais fácil no [tópico de feedback](https://github.com/isoazevedo/AstCall/discussions/1), ou
+> [abra uma issue](https://github.com/isoazevedo/AstCall/issues/new/choose) se algo não funcionar.
+
+<details>
+<summary><b>English</b></summary>
+
+**AstCall is a real-time monitoring panel for Asterisk 20 and 22** — a modern take on MonAst.
+It shows PJSIP endpoints, live calls (transfers and queue calls correlated into a single call) and
+queues (waiting callers, service level, agents) the moment they change, over AMI and WebSocket.
+Supervisors can hang up, transfer, listen/whisper/barge (ChanSpy), and pause or add queue members,
+each action checked against per-user permissions and audited. It also has a TV wallboard mode,
+embeddable Web Components and multi-tenant scoping.
+
+Stack: Node.js + TypeScript backend (own AMI client, in-memory state), Vue 3 Web Components.
+Runs standalone (own login) or embedded in a PHP system. Try it without an Asterisk server with
+`npm run demo`. The documentation is in Portuguese; feedback in English is welcome in
+[Discussions](https://github.com/isoazevedo/AstCall/discussions).
+
+</details>
 
 ![Visão geral do painel](docs/img/painel-escuro.png)
 

@@ -2,6 +2,7 @@
   "name": "@astcall/web",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Frontend do AstCall: Web Component <ast-monitor> e SPA standalone",
   "type": "module",
   "scripts": {

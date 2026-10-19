@@ -79,5 +79,5 @@ SHOT_USER=admin SHOT_PASSWORD=... npm run screenshots
 ```
 
 Abre o Edge/Chrome sem janela, entra no painel, prepara cada tela (abas, menus, diálogos) e grava
-os PNGs em `docs/img/` (`-- --copy <pasta>` copia também para outra pasta). O usuário precisa de
+os PNGs em `docs/img/`, além do GIF do README (`astcall-ao-vivo.gif`) e da imagem de prévia de links (`social-preview.png`, enviada em GitHub → Settings → Social preview) (`-- --copy <pasta>` copia também para outra pasta). O usuário precisa de
 todas as permissões.

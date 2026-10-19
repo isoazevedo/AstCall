@@ -1,6 +1,7 @@
 {
   "name": "astcall",
   "private": true,
+  "license": "MIT",
   "description": "Painel de monitoramento em tempo real para Asterisk 22",
   "type": "module",
   "workspaces": [

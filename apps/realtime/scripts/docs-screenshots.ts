@@ -13,14 +13,26 @@
  *   --url http://localhost:5173
  *   --browser <caminho>  Edge/Chrome (detectado automaticamente)
  *
- * Funciona pelo Chrome DevTools Protocol (CDP), sem dependências novas: o navegador é
- * aberto com --remote-debugging-port e controlado por WebSocket.
+ * Funciona pelo Chrome DevTools Protocol (CDP): o navegador é aberto com
+ * --remote-debugging-port e controlado por WebSocket. Além dos prints, gera:
+ *   astcall-ao-vivo.gif  o painel atualizando sozinho (README)
+ *   social-preview.png   imagem de 1280×640 para Settings → Social preview do GitHub
  */
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import gifenc from 'gifenc'; // CommonJS: só a exportação padrão funciona no ESM do Node
+import { PNG } from 'pngjs';
 import { WebSocket } from 'ws';
 
 const { values } = parseArgs({
@@ -31,6 +43,8 @@ const { values } = parseArgs({
     browser: { type: 'string' },
   },
 });
+
+const { applyPalette, GIFEncoder, quantize } = gifenc;
 
 const ROOT = resolve(import.meta.dirname, '..', '..', '..');
 const OUT = resolve(ROOT, values.out);
@@ -339,6 +353,81 @@ try {
     saved.push(file);
     console.log(`✓ ${shot.file.padEnd(22)} ${shot.desc}`);
   }
+
+  // ---- GIF do painel ao vivo: 16 quadros, um por segundo (as durações andam sozinhas)
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await cdp.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: 'dark' }],
+  });
+  await go('/');
+  await cdp.eval(`${HELPERS} ${MONITOR_READY}`);
+  const gif = GIFEncoder();
+  for (let i = 0; i < 16; i++) {
+    const t0 = Date.now();
+    const { data } = await cdp.send<{ data: string }>('Page.captureScreenshot', {
+      format: 'png',
+      clip: { x: 0, y: 0, width: 1440, height: 900, scale: 960 / 1440 },
+    });
+    const frame = PNG.sync.read(Buffer.from(data, 'base64'));
+    const rgba = new Uint8Array(frame.data);
+    const palette = quantize(rgba, 256);
+    gif.writeFrame(applyPalette(rgba, palette), frame.width, frame.height, {
+      palette,
+      delay: 1000,
+    });
+    await sleep(Math.max(0, 1000 - (Date.now() - t0)));
+  }
+  gif.finish();
+  const gifFile = join(OUT, 'astcall-ao-vivo.gif');
+  writeFileSync(gifFile, gif.bytes());
+  saved.push(gifFile);
+  console.log('✓ astcall-ao-vivo.gif    painel ao vivo (README)');
+
+  // ---- Imagem de prévia para links compartilhados (GitHub → Settings → Social preview)
+  const painel = readFileSync(join(OUT, 'painel-escuro.png')).toString('base64');
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1280,
+    height: 640,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await cdp.send('Page.navigate', { url: 'about:blank' });
+  await sleep(300);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box;margin:0}
+    body{width:1280px;height:640px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;
+      background:radial-gradient(circle at 15% 20%,#2b3a5c 0,#151b29 55%);color:#e9eef7}
+    .txt{position:absolute;left:72px;top:110px;width:520px}
+    .logo{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:16px;
+      background:#5a8dee;font-size:36px;font-weight:700;margin-bottom:26px}
+    h1{font-size:76px;font-weight:700;letter-spacing:-1px}
+    p{font-size:30px;line-height:1.3;color:#b8c3d6;margin-top:14px}
+    ul{list-style:none;padding:0;margin-top:34px;display:flex;flex-wrap:wrap;gap:12px}
+    li{font-size:21px;padding:8px 16px;border-radius:999px;background:rgba(90,141,238,.18);color:#9fbcf5}
+    .url{position:absolute;left:72px;bottom:48px;font-size:22px;color:#7f8ba0}
+    img{position:absolute;left:640px;top:70px;width:900px;border-radius:18px;
+      box-shadow:0 30px 80px rgba(0,0,0,.55);transform:perspective(1600px) rotateY(-12deg)}
+  </style></head><body>
+    <div class="txt"><div class="logo">A</div><h1>AstCall</h1>
+      <p>Monitor em tempo real para Asterisk 20 e 22</p>
+      <ul><li>Chamadas</li><li>Filas</li><li>Escuta</li><li>Modo TV</li><li>Multiempresa</li></ul></div>
+    <div class="url">github.com/isoazevedo/AstCall</div>
+    <img src="data:image/png;base64,${painel}">
+  </body></html>`;
+  await cdp.eval(
+    `document.open(); document.write(${JSON.stringify(html)}); document.close();
+     await new Promise((r) => setTimeout(r, 800));`,
+  );
+  const preview = await cdp.send<{ data: string }>('Page.captureScreenshot', { format: 'png' });
+  const previewFile = join(OUT, 'social-preview.png');
+  writeFileSync(previewFile, Buffer.from(preview.data, 'base64'));
+  saved.push(previewFile);
+  console.log('✓ social-preview.png     prévia de links (Settings → Social preview)');
 
   if (values.copy) {
     mkdirSync(values.copy, { recursive: true });

@@ -1,0 +1,27 @@
+name: Sugestão de melhoria
+description: Uma ideia, recurso que faltou ou algo que poderia ser mais fácil.
+title: '[Sugestão] '
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: ideia
+    attributes:
+      label: O que você gostaria?
+      placeholder: 'Ver o tempo médio de atendimento de cada atendente no modo TV...'
+    validations:
+      required: true
+  - type: textarea
+    id: motivo
+    attributes:
+      label: Por que isso ajudaria?
+      description: Conte o seu dia a dia — quem usaria e em que situação.
+  - type: dropdown
+    id: perfil
+    attributes:
+      label: Você é…
+      options:
+        - Supervisor(a) ou gestor(a) de atendimento
+        - Operador(a) / atendente
+        - Técnico(a) / integrador(a) de telefonia
+        - Desenvolvedor(a)
+        - Outro
