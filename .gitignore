@@ -29,8 +29,6 @@ reference/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
-CLAUDE.md
-.claude/
 
 # Logs
 *.log
