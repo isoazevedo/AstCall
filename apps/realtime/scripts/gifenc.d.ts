@@ -1,7 +1,7 @@
 /** Tipos mínimos da biblioteca gifenc (sem tipos próprios), usada para o GIF da documentação. */
 declare module 'gifenc' {
   type Palette = number[][];
-  function GIFEncoder(): {
+  interface Encoder {
     writeFrame(
       index: Uint8Array,
       width: number,
@@ -10,13 +10,11 @@ declare module 'gifenc' {
     ): void;
     finish(): void;
     bytes(): Uint8Array;
-  };
-  function quantize(rgba: Uint8Array, maxColors: number): Palette;
-  function applyPalette(rgba: Uint8Array, palette: Palette): Uint8Array;
+  }
   const gifenc: {
-    GIFEncoder: typeof GIFEncoder;
-    quantize: typeof quantize;
-    applyPalette: typeof applyPalette;
+    GIFEncoder(): Encoder;
+    quantize(rgba: Uint8Array, maxColors: number): Palette;
+    applyPalette(rgba: Uint8Array, palette: Palette): Uint8Array;
   };
   export default gifenc;
 }
