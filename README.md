@@ -36,7 +36,7 @@ Runs standalone (own login) or embedded in a PHP system. Try it without an Aster
 
 </details>
 
-![Visão geral do painel](docs/img/painel-escuro.png)
+![Chamadas em andamento no painel](docs/img/chamadas.png)
 
 ## O que ele faz
 

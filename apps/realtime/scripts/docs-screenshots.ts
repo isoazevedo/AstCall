@@ -170,6 +170,24 @@ const SHOTS: Shot[] = [
     prepare: MONITOR_READY,
   },
   {
+    file: 'chamadas.png',
+    path: '/',
+    theme: 'dark',
+    fullPage: true,
+    desc: 'aba Chamadas',
+    prepare: `${MONITOR_READY}
+      byText(root(), '.ast-tab', 'Chamadas').click(); await wait(500);`,
+  },
+  {
+    file: 'ramais.png',
+    path: '/',
+    theme: 'dark',
+    fullPage: true,
+    desc: 'aba Ramais',
+    prepare: `${MONITOR_READY}
+      byText(root(), '.ast-tab', 'Ramais').click(); await wait(500);`,
+  },
+  {
     file: 'menu-chamada.png',
     path: '/',
     theme: 'dark',
@@ -341,7 +359,7 @@ try {
       const h = await cdp.eval<number>('return document.documentElement.scrollHeight;');
       await cdp.send('Emulation.setDeviceMetricsOverride', {
         width: 1440,
-        height: Math.min(Math.max(h, 900), 3000),
+        height: Math.min(Math.max(h, 900), 4000),
         deviceScaleFactor: 1,
         mobile: false,
       });

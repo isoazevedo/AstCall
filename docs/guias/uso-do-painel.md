@@ -27,7 +27,18 @@ O selo no canto superior direito mostra a conexão: **Tempo real** (tudo certo),
 No topo, os números do momento: chamadas ativas, em conversa, aguardando em fila, ramais online e
 ramais ocupados.
 
-### Chamadas em andamento
+Logo abaixo ficam as abas:
+
+| Aba             | O que mostra                               |
+| --------------- | ------------------------------------------ |
+| **Visão geral** | tudo numa página: chamadas, ramais e filas |
+| **Ramais**      | só os ramais                               |
+| **Chamadas**    | só as chamadas em andamento                |
+| **Filas**       | só as filas                                |
+
+## Chamadas
+
+![Aba Chamadas](../img/chamadas.png)
 
 Cada linha é uma chamada, com os participantes (número e nome), a situação e a duração:
 
@@ -66,7 +77,9 @@ Ao lado de cada participante há um botão **⋮** com as ações sobre aquele l
 Só aparecem as ações que o seu usuário tem permissão de usar e que fazem sentido no momento (por
 exemplo, escutar e transferir só com a chamada em conversa).
 
-### Ramais
+## Ramais
+
+![Aba Ramais](../img/ramais.png)
 
 Cada cartão mostra o ramal, a situação (**Livre**, **Em uso**, **Ocupado**, **Tocando**, **Em
 espera**, **Indisponível**) e o aparelho registrado. Use os filtros **Todos / Livres / Em uso /

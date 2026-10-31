@@ -12,7 +12,15 @@
  * - watch: reage a mudanças de um valor.
  */
 import { computed, ref } from 'vue';
-import { LayoutDashboard, ListOrdered, Radio, Wifi, WifiOff } from 'lucide-vue-next';
+import {
+  LayoutDashboard,
+  ListOrdered,
+  Phone,
+  PhoneCall,
+  Radio,
+  Wifi,
+  WifiOff,
+} from 'lucide-vue-next';
 import { useWidgetRoot } from '../composables/useWidget';
 import { useMonitorStore } from '../stores/monitor';
 import CallList from './CallList.ce.vue';
@@ -62,8 +70,18 @@ const badge = computed(() => {
   return { tone: 'secondary', text: 'Conectando…', icon: Radio };
 });
 
-/** Aba de conteúdo selecionada. */
-const view = ref<'overview' | 'queues'>('overview');
+/** Aba de conteúdo selecionada. A Visão geral mostra o conteúdo de todas as outras. */
+type View = 'overview' | 'endpoints' | 'calls' | 'queues';
+const view = ref<View>('overview');
+const shows = (section: View) => view.value === 'overview' || view.value === section;
+
+/** Abas de conteúdo, com a quantidade de itens de cada uma (a Visão geral não tem contador). */
+const tabs = computed(() => [
+  { id: 'overview' as const, label: 'Visão geral', icon: LayoutDashboard, count: 0 },
+  { id: 'endpoints' as const, label: 'Ramais', icon: Phone, count: store.endpoints.length },
+  { id: 'calls' as const, label: 'Chamadas', icon: PhoneCall, count: store.calls.length },
+  { id: 'queues' as const, label: 'Filas', icon: ListOrdered, count: store.queues.length },
+]);
 
 /** Números do topo. */
 const stats = computed(() => {
@@ -141,32 +159,33 @@ const stats = computed(() => {
       </div>
     </section>
 
-    <!-- Abas de conteúdo. v-if/v-else monta só a aba ativa (a outra sai da página). -->
+    <!-- Abas de conteúdo. v-for repete o botão para cada item da lista `tabs`. -->
     <nav class="ast-tabs" aria-label="Seções">
       <button
+        v-for="tab in tabs"
+        :key="tab.id"
         type="button"
         class="ast-tab"
-        :class="{ active: view === 'overview' }"
-        @click="view = 'overview'"
+        :class="{ active: view === tab.id }"
+        @click="view = tab.id"
       >
-        <LayoutDashboard :size="16" aria-hidden="true" /> Visão geral
-      </button>
-      <button
-        type="button"
-        class="ast-tab"
-        :class="{ active: view === 'queues' }"
-        @click="view = 'queues'"
-      >
-        <ListOrdered :size="16" aria-hidden="true" /> Filas
-        <span v-if="store.queues.length" class="tab-count">{{ store.queues.length }}</span>
+        <component :is="tab.icon" :size="16" aria-hidden="true" /> {{ tab.label }}
+        <span v-if="tab.count" class="tab-count">{{ tab.count }}</span>
       </button>
     </nav>
 
-    <template v-if="view === 'overview'">
-      <CallList :calls="store.calls" :loading="!store.active?.hasSnapshot" />
-      <EndpointGrid :endpoints="store.endpoints" :loading="!store.active?.hasSnapshot" />
-    </template>
-    <QueuePanel v-else :queues="store.queues" :loading="!store.active?.hasSnapshot" />
+    <!-- v-if monta só o que a aba ativa mostra (o resto sai da página). -->
+    <CallList v-if="shows('calls')" :calls="store.calls" :loading="!store.active?.hasSnapshot" />
+    <EndpointGrid
+      v-if="shows('endpoints')"
+      :endpoints="store.endpoints"
+      :loading="!store.active?.hasSnapshot"
+    />
+    <QueuePanel
+      v-if="shows('queues')"
+      :queues="store.queues"
+      :loading="!store.active?.hasSnapshot"
+    />
 
     <ActionDialog />
     <ToastHost />
