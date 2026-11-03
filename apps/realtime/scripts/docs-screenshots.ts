@@ -238,6 +238,29 @@ const SHOTS: Shot[] = [
       await until(() => root().querySelector('.queue .members li')); await wait(500);`,
   },
   {
+    file: 'previsao.png',
+    path: '/',
+    theme: 'dark',
+    desc: 'bloco Previsão de uma fila em risco',
+    // o simulador alterna o pico entre as filas: espera uma fila "Vai estourar" ou "Abaixo da meta"
+    prepare: `${MONITOR_READY}
+      byText(root(), '.ast-tab', 'Filas').click();
+      const block = await until(() => root().querySelector('.q-forecast.risk-high, .q-forecast.risk-warn'), 240000);
+      block.closest('.queue').scrollIntoView({ block: 'start' });
+      window.scrollBy(0, -90); await wait(500);`,
+  },
+  {
+    file: 'sugestoes.png',
+    path: '/',
+    theme: 'dark',
+    desc: 'cartão Sugestões (copiloto)',
+    prepare: `${MONITOR_READY}
+      byText(root(), '.ast-tab', 'Filas').click();
+      await until(() => root().querySelector('.copilot-list li'), 240000);
+      root().querySelector('.copilot').scrollIntoView({ block: 'start' });
+      window.scrollBy(0, -90); await wait(500);`,
+  },
+  {
     file: 'menu-membro.png',
     path: '/',
     theme: 'dark',

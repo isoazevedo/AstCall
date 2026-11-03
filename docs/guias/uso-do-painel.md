@@ -124,6 +124,47 @@ reforçar o atendimento num pico. Escolha o ramal, a penalidade e se ele já ent
 O ramal entra como **dinâmico**: continua na fila (inclusive depois de reiniciar o PBX) até ser
 removido pelo painel.
 
+### Previsão
+
+Cada fila tem um bloco **Previsão**, que olha para os **próximos minutos** em vez do que já
+aconteceu. Ele usa o ritmo de chegada de ligações dos últimos 15 minutos, o tempo médio de
+atendimento e os atendentes disponíveis agora.
+
+![Bloco Previsão de uma fila](../img/previsao.png)
+
+- **Selo**: **Dentro da meta** (verde), **Abaixo da meta** (amarelo), **Vai estourar**
+  (vermelho) ou **Sem movimento** (nenhuma ligação na janela).
+- **Previsto X% · meta 80% em 20 s**: quantas ligações devem ser atendidas dentro do tempo da
+  meta, se nada mudar. O tempo vem do nível de serviço configurado na fila.
+- **Precisa de N atendentes, tem M**: quantos atendentes livres seriam necessários para cumprir a
+  meta.
+- **Entrada** (ligações por minuto, com a seta de tendência) e **atendimento médio**. Antes do
+  primeiro atendimento terminar, o atendimento médio é uma **estimativa inicial** (3 min).
+- Na lista de quem aguarda, **atende ~X min** estima quando cada cliente deve ser atendido.
+
+Logo depois que o painel começa a monitorar, a previsão aparece com o aviso **Coletando dados**
+até completar a primeira janela.
+
+### Sugestões
+
+Para quem pode pausar ou gerenciar membros de fila, as abas **Visão geral** e **Filas** mostram o
+cartão **Sugestões**: o painel aponta o que fazer quando uma fila corre risco.
+
+![Cartão Sugestões](../img/sugestoes.png)
+
+- **Fila em risco** (abaixo da meta, vai estourar ou cliente esperando sem atendente livre):
+  sugere **Retomar** quem está em pausa nessa fila (há mais tempo primeiro) e **Adicionar** ramais
+  livres que ainda não são da fila. Cada ramal é sugerido para uma fila só, começando pela mais
+  grave.
+- **Pausa longa**: avisa quem está em pausa há 30 minutos ou mais, mesmo sem risco.
+- Os botões abrem a **mesma confirmação** das outras ações: nada é feito sem você confirmar.
+- O **×** dispensa a sugestão por 10 minutos.
+- A **engrenagem** ajusta o tempo da pausa longa (0 desliga o aviso) e os motivos de pausa que não
+  devem gerar aviso (ex.: "Treinamento"). A escolha fica salva neste navegador.
+
+Só aparecem sugestões que você tem permissão para executar: **Retomar** exige "Pausar membros de
+fila"; **Adicionar**, "Adicionar/remover membros de fila".
+
 ## Alertas de desconexão
 
 Avisam quando um ramal ou tronco **que estava online** fica fora do ar — por exemplo, um
@@ -184,7 +225,7 @@ também recusa.
 | `astcall.hangup`       | Desligar chamadas                 | **Desligar**                                   |
 | `astcall.transfer`     | Transferir chamadas               | **Transferir**                                 |
 | `astcall.spy`          | Escutar / sussurrar / intervir    | **Escutar**                                    |
-| `astcall.queue`        | Pausar membros de fila            | **Pausar / Retomar**                           |
+| `astcall.queue`        | Pausar membros de fila            | **Pausar / Retomar**, cartão **Sugestões**     |
 | `astcall.queue_manage` | Adicionar/remover membros de fila | **Adicionar**, **Remover da fila**, penalidade |
 | —                      | Gerenciar usuários                | tela **Usuários** (só no standalone)           |
 

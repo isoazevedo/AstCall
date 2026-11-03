@@ -84,6 +84,16 @@ AUDIT_FILE=/var/log/astcall/audit.jsonl
 Os demais itens do `.env.example` têm valores padrão adequados (validade do acesso, arquivos de
 chaves e do banco de usuários, intervalos de reconciliação).
 
+Previsão das filas (opcional, todos com padrão):
+
+| Variável               | Padrão | O que define                                                           |
+| ---------------------- | ------ | ---------------------------------------------------------------------- |
+| `SL_TARGET_PERCENT`    | 80     | meta de nível de serviço (% atendidas dentro do tempo)                 |
+| `SL_DEFAULT_SECONDS`   | 20     | tempo da meta quando a fila não tem `servicelevel` configurado         |
+| `FORECAST_WINDOW_MIN`  | 15     | janela (min) usada para medir o ritmo de entrada e o atendimento médio |
+| `DEFAULT_AHT_SECONDS`  | 180    | atendimento médio (s) usado até a fila ter um atendimento concluído    |
+| `FORECAST_INTERVAL_MS` | 5000   | de quanto em quanto tempo a previsão é recalculada                     |
+
 ## 4. Chaves e primeiro administrador
 
 ```bash

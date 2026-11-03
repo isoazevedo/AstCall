@@ -633,7 +633,8 @@ Usa apenas dados que o backend já recebe. Plano detalhado em 2026-11-03.
       risco, aviso de pausa longa (30 min, motivos ignoráveis), dispensar por 10 min; só para quem tem
       `queue` ou `queue_manage`; sempre pelo diálogo de confirmação. Também: tempo médio padrão
       (`DEFAULT_AHT_SECONDS`) até o primeiro atendimento e selo "Sem movimento"
-- [ ] Fase 4 — onda de "horário de pico" no simulador, guias e prints
+- [x] Fase 4 — onda de "horário de pico" no simulador (filas a 40% na demo), guias (Previsão,
+      Sugestões, variáveis no guia standalone), README e prints `previsao.png` e `sugestoes.png`
 
 **Esforço estimado:** M
 **Impacto esperado:** Alto
@@ -755,3 +756,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-11-03 | Claude Code | Alertas de desconexão (sino, seção Desconectados, som, notificação do navegador, repetição, tolerância, troncos em destaque, tela no modo TV); `offlineSince` no backend; claim `trunks` (contrato 1.4)    |
 | 2026-10-31 | Claude Code | Painel com as abas Visão geral (chamadas, ramais e filas), Ramais, Chamadas e Filas; guia de uso e prints atualizados                                                                                      |
 | 2026-11-03 | Claude Code | Item 26, fases 1–3: previsão das filas (backend e painel) e card "Sugestões" do copiloto; tempo médio padrão e selo "Sem movimento"                                                                        |
+| 2026-11-03 | Claude Code | Item 26 concluído (fase 4): horário de pico no simulador, guias, README e prints da previsão e das sugestões                                                                                               |

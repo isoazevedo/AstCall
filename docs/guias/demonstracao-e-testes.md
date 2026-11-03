@@ -8,7 +8,8 @@
 O AstCall traz um **PBX simulado** que fala o mesmo protocolo do Asterisk (AMI) e gera um dia de
 operação fictício: 40 ramais (2001 em diante, com nomes de pessoas), filas **suporte**,
 **vendas** e **financeiro**, clientes ligando de fora, conversas entre ramais, atendentes pausados
-e alguns ramais desconectados. Nada é real — dá para testar todas as ações à vontade.
+e alguns ramais desconectados. Um "horário de pico" passa de fila em fila a cada 6 minutos, então
+a previsão das filas muda de cor sozinha. Nada é real — dá para testar todas as ações à vontade.
 
 ```bash
 npm install
@@ -41,6 +42,10 @@ Opções do simulador: `npm run demo -- --endpoints 80 --queues 5 --members 6 --
 - [ ] Menu **⋮** de uma chamada: escutar, transferir e desligar abrem os diálogos.
 - [ ] Menu **⋮** de um atendente: pausar com motivo, retomar, alterar penalidade.
 - [ ] **Adicionar** um ramal a uma fila: ele aparece como **dinâmico** e pode ser removido.
+- [ ] **Previsão**: depois de ~15 min, os selos variam entre verde, amarelo e vermelho conforme o pico
+      passa de uma fila para outra.
+- [ ] **Sugestões**: o botão **Adicionar** abre o diálogo com o ramal sugerido já escolhido; o **×**
+      esconde a sugestão por 10 minutos.
 - [ ] **Modo TV**: rodízio liga/desliga, a escolha continua após recarregar.
 - [ ] **Usuários**: criar um usuário só com "Ver o painel", entrar com ele numa janela anônima e
       conferir que nenhuma ação aparece.

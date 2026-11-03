@@ -35,7 +35,8 @@ const sim: SimOptions = {
   membersPerQueue: Number(values.members),
   calls: Number(values.calls),
   talkSeconds: Number(values.talk),
-  queueRatio: 0.7,
+  // 40% pelas filas: com a onda de pico, há sempre uma fila calma, uma enchendo e uma no limite
+  queueRatio: 0.4,
   port: PORT,
   demo: true,
 };

@@ -406,8 +406,30 @@ function memberStatus(queue: string, e: string): void {
   });
 }
 
+/**
+ * Horário de pico (só na demonstração): uma onda passa de fila em fila num ciclo de 6 min.
+ * O peso de cada fila sobe e desce defasado das outras — em cada momento uma fila está
+ * calma, outra enchendo e outra no pico —, então a previsão do painel muda de cor sozinha.
+ * No teste de carga as filas recebem chamadas por igual.
+ */
+const RUSH_PERIOD_MS = 6 * 60_000;
+const simStartedAt = Date.now();
+
+function pickQueue(): number {
+  if (!opts.demo) return Math.floor(Math.random() * opts.queues);
+  const t = (Date.now() - simStartedAt) / RUSH_PERIOD_MS;
+  // seno defasado por fila, ao quadrado para o pico ser mais curto e acentuado
+  const weights = Array.from({ length: opts.queues }, (_, q) => {
+    const wave = Math.max(0, Math.sin(2 * Math.PI * (t + q / opts.queues)));
+    return 0.15 + 2 * wave * wave;
+  });
+  let x = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let q = 0; q < weights.length; q++) if ((x -= weights[q]!) <= 0) return q;
+  return weights.length - 1;
+}
+
 function queueCall(): void {
-  const q = queueName(Math.floor(Math.random() * opts.queues));
+  const q = queueName(pickQueue());
   // Demonstração: o cliente liga de fora (tronco); teste de carga: um ramal liga para a fila
   const a = opts.demo ? TRUNK : freeEndpoint();
   if (!a) return;
