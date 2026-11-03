@@ -159,7 +159,7 @@ async function main(): Promise<void> {
   Object.assign(routes, staticRoutes(config.staticDir, ['ast-monitor.js']));
   const http: Server = createHttpServer(routes, { trustProxy: config.http.trustProxy, log });
   const actions = new ActionService(actionTargets, log, undefined, auditLog);
-  const hub = new Hub(feeds, verifier, log, { actions });
+  const hub = new Hub(feeds, verifier, log, { actions, history });
   hub.attach(http);
   http.listen(config.http.port, config.http.host, () => {
     log.info(

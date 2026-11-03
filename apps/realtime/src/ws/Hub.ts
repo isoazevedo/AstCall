@@ -15,7 +15,9 @@ import {
 } from '@astcall/shared';
 import { ActionError, type ActionService } from '../actions/index.js';
 import { AuthError, type TokenVerifier } from '../auth/tokens.js';
+import type { HistoryStore } from '../history/HistoryStore.js';
 import type { Logger } from '../logger.js';
+import { scopeSnapshot } from '../state/visibility.js';
 import type { FeedSubscriber, ServerFeed } from './ServerFeed.js';
 
 export interface HubOptions {
@@ -29,6 +31,8 @@ export interface HubOptions {
   maxBufferedBytes?: number;
   /** Executor das ações pedidas pelo painel (sem ele, toda ação é recusada). */
   actions?: Pick<ActionService, 'execute'>;
+  /** Histórico do estado (máquina do tempo); sem ele, `history` responde `unavailable`. */
+  history?: Pick<HistoryStore, 'stateAt' | 'firstAt'>;
 }
 
 const clientMessageSchema = z.discriminatedUnion('t', [
@@ -43,6 +47,12 @@ const clientMessageSchema = z.discriminatedUnion('t', [
     name: z.string().max(32),
     params: z.unknown(),
   }),
+  z.object({
+    t: z.literal('history'),
+    reqId: z.string().min(1).max(64),
+    server: z.string(),
+    at: z.number().int().nonnegative(),
+  }),
 ]);
 
 /**
@@ -54,8 +64,9 @@ export class Hub {
   private readonly sessions = new Set<Session>();
   private readonly pingTimer: NodeJS.Timeout;
   private readonly log: Logger;
-  readonly opts: Required<Omit<HubOptions, 'actions'>>;
+  readonly opts: Required<Omit<HubOptions, 'actions' | 'history'>>;
   readonly actions: HubOptions['actions'];
+  readonly history: HubOptions['history'];
 
   constructor(
     private readonly feeds: Map<ServerId, ServerFeed>,
@@ -65,6 +76,7 @@ export class Hub {
   ) {
     this.log = log.child({ mod: 'ws' });
     this.actions = options.actions;
+    this.history = options.history;
     this.opts = {
       authTimeoutMs: options.authTimeoutMs ?? 5_000,
       expiryGraceMs: options.expiryGraceMs ?? 5_000,
@@ -229,6 +241,9 @@ class Session implements FeedSubscriber {
       case 'action':
         await this.runAction(msg.reqId, msg.server, msg.name, msg.params);
         break;
+      case 'history':
+        this.sendHistory(msg.reqId, msg.server, msg.at);
+        break;
     }
   }
 
@@ -281,6 +296,7 @@ class Session implements FeedSubscriber {
         status: f.status,
         permissions: permissionsFor(claims.perms, f.serverId),
         trunks: trunksFor(claims, f),
+        history: !!this.hub.history && hasPermission(claims.perms, f.serverId, 'history'),
       })),
     });
     if (first) this.log.info('Cliente WebSocket autenticado');
@@ -307,6 +323,33 @@ class Session implements FeedSubscriber {
       const error = err instanceof ActionError ? err.message : 'falha ao executar a ação';
       this.send({ t: 'action_result', reqId, ok: false, code, error });
     }
+  }
+
+  /**
+   * Estado de um servidor num horário passado. Exige `view` e `history` no servidor; com
+   * escopo de empresa, o estado é recortado como o ao vivo (com os canais daquele horário).
+   */
+  private sendHistory(reqId: string, server: ServerId, at: number): void {
+    const claims = this.claims!;
+    const reply = { t: 'history_state' as const, reqId, server, at };
+    if (!this.hub.feedFor(claims, server) || !hasPermission(claims.perms, server, 'history')) {
+      this.send({ ...reply, ok: false, code: 'forbidden', from: null });
+      return;
+    }
+    const history = this.hub.history;
+    if (!history) {
+      this.send({ ...reply, ok: false, code: 'unavailable', from: null });
+      return;
+    }
+    const from = history.firstAt(server);
+    const state = history.stateAt(server, at);
+    if (!state) {
+      this.send({ ...reply, ok: false, code: 'not_found', from });
+      return;
+    }
+    const scope = this.scopeFor(server);
+    const data = scope ? scopeSnapshot(scope, state.snapshot) : state.snapshot;
+    this.send({ ...reply, ok: true, from, status: state.status, data });
   }
 
   private scheduleExpiry(expMs: number): void {

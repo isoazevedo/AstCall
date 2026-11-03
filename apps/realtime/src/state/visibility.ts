@@ -10,13 +10,19 @@ import type { ServerStore } from './ServerStore.js';
  *   ramal de outra empresa do outro lado — faz parte da conversa da empresa).
  * - Canais e bridges seguem a chamada.
  */
+/** De onde o filtro lê canais e chamadas: o store ao vivo ou um estado do histórico. */
+export interface ScopeSource {
+  readonly channels: ReadonlyMap<string, Channel>;
+  readonly calls: ReadonlyMap<string, Call>;
+}
+
 export class ScopeFilter {
   private readonly endpoints: Set<string>;
   private readonly queues: Set<string>;
 
   constructor(
     scope: ServerScope,
-    private readonly store: ServerStore,
+    private readonly store: ScopeSource,
   ) {
     this.endpoints = new Set(scope.endpoints);
     this.queues = new Set(scope.queues);
@@ -76,6 +82,18 @@ export class ScopeFilter {
       queueForecasts: (s.queueForecasts ?? []).filter((f) => this.queueVisible(f.queue)),
     };
   }
+}
+
+/**
+ * Recorta um snapshot qualquer (ex.: um horário do histórico) para o escopo, usando os canais
+ * e chamadas do próprio snapshot — não os do estado ao vivo.
+ */
+export function scopeSnapshot(scope: ServerScope, s: ServerSnapshot): ServerSnapshot {
+  const source: ScopeSource = {
+    channels: new Map(s.channels.map((c) => [c.uniqueid, c])),
+    calls: new Map(s.calls.map((c) => [c.id, c])),
+  };
+  return new ScopeFilter(scope, source).filterSnapshot(s);
 }
 
 /** Entidades cuja visibilidade muda com o tempo (dependem da chamada). */

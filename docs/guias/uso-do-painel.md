@@ -218,16 +218,17 @@ O que cada pessoa pode fazer é definido pelo administrador (no AzCall: **Funç�
 no standalone: tela **Usuários**). Sem permissão, o botão simplesmente não aparece — e o servidor
 também recusa.
 
-| Permissão (AzCall)     | Permissão (standalone)            | Libera                                         |
-| ---------------------- | --------------------------------- | ---------------------------------------------- |
-| `astcall.view`         | Ver o painel                      | ver o painel e o modo TV                       |
-| `astcall.originate`    | Ligar a partir de um ramal        | botão **Ligar** dos ramais                     |
-| `astcall.hangup`       | Desligar chamadas                 | **Desligar**                                   |
-| `astcall.transfer`     | Transferir chamadas               | **Transferir**                                 |
-| `astcall.spy`          | Escutar / sussurrar / intervir    | **Escutar**                                    |
-| `astcall.queue`        | Pausar membros de fila            | **Pausar / Retomar**, cartão **Sugestões**     |
-| `astcall.queue_manage` | Adicionar/remover membros de fila | **Adicionar**, **Remover da fila**, penalidade |
-| —                      | Gerenciar usuários                | tela **Usuários** (só no standalone)           |
+| Permissão (AzCall)     | Permissão (standalone)             | Libera                                         |
+| ---------------------- | ---------------------------------- | ---------------------------------------------- |
+| `astcall.view`         | Ver o painel                       | ver o painel e o modo TV                       |
+| `astcall.originate`    | Ligar a partir de um ramal         | botão **Ligar** dos ramais                     |
+| `astcall.hangup`       | Desligar chamadas                  | **Desligar**                                   |
+| `astcall.transfer`     | Transferir chamadas                | **Transferir**                                 |
+| `astcall.spy`          | Escutar / sussurrar / intervir     | **Escutar**                                    |
+| `astcall.queue`        | Pausar membros de fila             | **Pausar / Retomar**, cartão **Sugestões**     |
+| `astcall.queue_manage` | Adicionar/remover membros de fila  | **Adicionar**, **Remover da fila**, penalidade |
+| `astcall.history`      | Ver o histórico (máquina do tempo) | **Histórico** (rever horários passados)        |
+| —                      | Gerenciar usuários                 | tela **Usuários** (só no standalone)           |
 
 Mudanças de permissão valem em até 10 minutos (na próxima renovação automática do acesso) ou ao
 entrar novamente.

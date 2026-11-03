@@ -15,6 +15,7 @@ export const PERMISSIONS = [
   'queue_manage', // adicionar / remover membros de fila e alterar penalidade
   'conference', // gerenciar conferências ConfBridge
   'users', // gerenciar os usuários do modo standalone (só tokens do próprio AstCall)
+  'history', // ver o histórico (máquina do tempo)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -31,6 +32,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   queue_manage: 'Adicionar/remover membros de fila',
   conference: 'Gerenciar conferências',
   users: 'Gerenciar usuários',
+  history: 'Ver o histórico (máquina do tempo)',
 };
 
 /** Chave curinga em `perms`: as permissões valem para todos os servidores. */

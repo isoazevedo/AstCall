@@ -1,7 +1,7 @@
 # Integração AstCall × AzCall (modo integrado)
 
 > Contrato entre o AstCall (backend Node + Web Component) e o AzCall (PHP).
-> Versão do contrato: **1.4** · Última revisão: 2026-10-17
+> Versão do contrato: **1.5** · Última revisão: 2026-11-03
 
 O AzCall embute o painel AstCall numa página própria, autentica o usuário (sem segundo login)
 e emite o token. O AstCall só **valida** o token e aplica permissões e escopo que vêm nele.
@@ -52,21 +52,23 @@ define `--ast-card-bg` (o tema não expõe a cor do card na raiz) — ver `views
 
 ### 1.3 Token (JWT RS256)
 
-| Claim       | Tipo                                                          | Descrição                                                                 |
-| ----------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `iss`       | string                                                        | `azcall` (precisa constar em `EXTERNAL_JWT_ISSUER` do AstCall)            |
-| `sub`       | string                                                        | `azcall:<id do usuário>`                                                  |
-| `name`      | string                                                        | nome de exibição                                                          |
-| `iat`/`exp` | número (s)                                                    | validade curta (padrão 600 s)                                             |
-| `perms`     | `{ "<servidor>": Permissão[] }`                               | `view`, `hangup`, `transfer`, `originate`, `spy`, `queue`, `queue_manage` |
-| `scope`     | `{ "<servidor>": { endpoints: string[], queues: string[] } }` | **opcional**; ausente = vê tudo naquele servidor (super_admin)            |
-| `extension` | string                                                        | **opcional**; ramal do usuário (sugestão no diálogo de escuta)            |
-| `trunks`    | `{ "<servidor>": string[] }`                                  | **opcional**; endpoints que são troncos (destaque nos alertas de queda)   |
+| Claim       | Tipo                                                          | Descrição                                                                            |
+| ----------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `iss`       | string                                                        | `azcall` (precisa constar em `EXTERNAL_JWT_ISSUER` do AstCall)                       |
+| `sub`       | string                                                        | `azcall:<id do usuário>`                                                             |
+| `name`      | string                                                        | nome de exibição                                                                     |
+| `iat`/`exp` | número (s)                                                    | validade curta (padrão 600 s)                                                        |
+| `perms`     | `{ "<servidor>": Permissão[] }`                               | `view`, `hangup`, `transfer`, `originate`, `spy`, `queue`, `queue_manage`, `history` |
+| `scope`     | `{ "<servidor>": { endpoints: string[], queues: string[] } }` | **opcional**; ausente = vê tudo naquele servidor (super_admin)                       |
+| `extension` | string                                                        | **opcional**; ramal do usuário (sugestão no diálogo de escuta)                       |
+| `trunks`    | `{ "<servidor>": string[] }`                                  | **opcional**; endpoints que são troncos (destaque nos alertas de queda)              |
 
 **Mapeamento de permissões** (AzCall → AstCall), em `AstCallTokenService::PERMISSION_MAP`:
 `astcall.view → view`, `astcall.hangup → hangup`, `astcall.transfer → transfer`,
 `astcall.originate → originate`, `astcall.spy → spy`, `astcall.queue → queue` (pausar/retomar),
-`astcall.queue_manage → queue_manage` (adicionar/remover membros dinâmicos e alterar penalidade).
+`astcall.queue_manage → queue_manage` (adicionar/remover membros dinâmicos e alterar penalidade),
+`astcall.history → history` (ver o histórico — máquina do tempo; migration 167). Com escopo de
+empresa, o histórico é recortado como o ao vivo: cada empresa só revê o que é dela.
 A permissão `users` (gerenciar usuários) só existe no modo standalone: o AzCall não a emite e,
 mesmo que emita, a API de usuários recusa tokens que não sejam do próprio AstCall.
 `super_admin` recebe todas.
@@ -242,3 +244,4 @@ O navegador revalida o `ast-monitor.js` (ETag) a cada carga da página.
 | 2026-10-17 | Claude Code | Versão 1.2: permissão `queue_manage` (migration 162); permissões desconhecidas são ignoradas                      |
 | 2026-10-17 | Claude Code | Versão 1.3: widgets `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` e atributo `readonly`                         |
 | 2026-11-03 | Claude Code | Versão 1.4: claim opcional `trunks` (alertas de desconexão); super_admin recebe todos, os demais só os da empresa |
+| 2026-11-03 | Claude Code | Versão 1.5: permissão `history` (`astcall.history`, migration 167) para o histórico do painel                     |

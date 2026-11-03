@@ -1,3 +1,5 @@
+import { emptySnapshot } from '@astcall/shared';
+import { HistoryStore } from '../../src/history/HistoryStore.js';
 import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -443,5 +445,66 @@ describe('troncos informados ao painel', () => {
       scope: { pbx1: { endpoints: ['9001', 'Avoip'], queues: [] } },
     };
     expect(trunksFor(claims, feed)).toEqual(['Avoip']);
+  });
+});
+
+describe('histórico pelo WebSocket', () => {
+  async function withHistory() {
+    const h = await HistoryStore.open(':memory:');
+    h.addCheckpoint('pbx1', 1000, {
+      ...emptySnapshot(),
+      queues: [{ name: 'suporte' }] as never,
+    });
+    h.addStatus('pbx1', 1000, 'ready');
+    await new Promise<void>((r) => {
+      hub.close();
+      http.close(() => r());
+    });
+    await setup({ history: h });
+    return h;
+  }
+
+  it('auth_ok indica o histórico só com a permissão history e o histórico ligado', async () => {
+    const c = await client();
+    c.send({ t: 'auth', token: await token({ pbx1: ['view', 'history'] }) });
+    expect((await c.next('auth_ok')).servers[0]?.history).toBe(false); // sem HistoryStore
+    const h = await withHistory();
+    const d = await client();
+    d.send({ t: 'auth', token: await token({ pbx1: ['view', 'history'], pbx2: ['view'] }) });
+    const ok = await d.next('auth_ok');
+    expect(ok.servers.map((s) => [s.id, s.history])).toEqual([
+      ['pbx1', true],
+      ['pbx2', false],
+    ]);
+    h.close();
+  });
+
+  it('responde o estado do horário, ou o motivo de não ter', async () => {
+    const h = await withHistory();
+    const c = await authedClient({ pbx1: ['view', 'history'], pbx2: ['view'] });
+    c.send({ t: 'history', reqId: 'h1', server: 'pbx1', at: 1500 });
+    const ok = await c.next('history_state', (m) => m.reqId === 'h1');
+    expect(ok).toMatchObject({ ok: true, server: 'pbx1', at: 1500, from: 1000, status: 'ready' });
+    expect(ok.data?.queues).toEqual([{ name: 'suporte' }]);
+
+    c.send({ t: 'history', reqId: 'h2', server: 'pbx1', at: 500 });
+    expect(await c.next('history_state', (m) => m.reqId === 'h2')).toMatchObject({
+      ok: false,
+      code: 'not_found',
+      from: 1000,
+    });
+    // vê o pbx2, mas sem a permissão history
+    c.send({ t: 'history', reqId: 'h3', server: 'pbx2', at: 1500 });
+    expect(await c.next('history_state', (m) => m.reqId === 'h3')).toMatchObject({
+      ok: false,
+      code: 'forbidden',
+    });
+    h.close();
+  });
+
+  it('histórico desligado: unavailable', async () => {
+    const c = await authedClient({ pbx1: ['view', 'history'] });
+    c.send({ t: 'history', reqId: 'h1', server: 'pbx1', at: 1500 });
+    expect(await c.next('history_state')).toMatchObject({ ok: false, code: 'unavailable' });
   });
 });

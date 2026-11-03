@@ -55,6 +55,7 @@ Em **Funções & Permissões** do AzCall, cada função recebe as permissões do
 | `astcall.spy`          | **Escutar / sussurrar / intervir**           | admin, supervisor         |
 | `astcall.queue`        | **Pausar / retomar** atendentes              | admin, supervisor         |
 | `astcall.queue_manage` | **Adicionar / remover** membros e penalidade | admin, supervisor         |
+| `astcall.history`      | **Histórico** (rever horários passados)      | admin, supervisor         |
 
 O `super_admin` vê todas as empresas; os demais veem só a própria. Mudanças valem em até 10
 minutos.

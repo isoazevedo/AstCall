@@ -12,6 +12,7 @@ import { applyEvent } from '../../src/handlers/index.js';
 import { HistoryRecorder } from '../../src/history/HistoryRecorder.js';
 import { HistoryStore } from '../../src/history/HistoryStore.js';
 import { ServerStore } from '../../src/state/ServerStore.js';
+import { scopeSnapshot } from '../../src/state/visibility.js';
 import { loadFixture } from '../helpers/replay.js';
 
 /**
@@ -187,5 +188,28 @@ describe('HistoryRecorder', () => {
     vi.advanceTimersByTime(60_000);
     expect(h.firstAt('pbx1')).toBe(2000);
     rec.close();
+  });
+});
+
+describe('scopeSnapshot', () => {
+  it('recorta pelo escopo usando os canais do próprio horário', () => {
+    const ch = (uniqueid: string, endpointId: string, linkedid: string) =>
+      ({ uniqueid, endpointId, linkedid, queue: null }) as never;
+    const snap: ServerSnapshot = {
+      ...emptySnapshot(),
+      endpoints: [{ id: '9001' }, { id: '9002' }] as never,
+      channels: [ch('a', '9001', 'a'), ch('b', 'Avoip', 'a'), ch('c', '9002', 'c')],
+      calls: [
+        { id: 'a', channelIds: ['a', 'b'] },
+        { id: 'c', channelIds: ['c'] },
+      ] as never,
+      queues: [{ name: 'suporte' }, { name: 'vendas' }] as never,
+    };
+    const out = scopeSnapshot({ endpoints: ['9001'], queues: ['suporte'] }, snap);
+    expect(out.endpoints.map((e) => e.id)).toEqual(['9001']);
+    // a chamada do 9001 aparece inteira (inclusive o tronco do outro lado)
+    expect(out.calls.map((c) => c.id)).toEqual(['a']);
+    expect(out.channels.map((c) => c.uniqueid)).toEqual(['a', 'b']);
+    expect(out.queues.map((q) => q.name)).toEqual(['suporte']);
   });
 });

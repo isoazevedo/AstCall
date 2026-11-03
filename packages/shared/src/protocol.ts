@@ -14,6 +14,9 @@ import type { ServerConnectionStatus, ServerId, ServerInfo } from './servers.js'
  * 5. Antes de o token expirar, o cliente envia outro `auth` com um token novo.
  * 6. Ações: o cliente envia `action` com um `reqId` próprio e recebe `action_result`
  *    com o mesmo `reqId` (o efeito em si chega depois, pelos deltas).
+ * 7. Histórico (máquina do tempo): o cliente envia `history` com um horário e recebe
+ *    `history_state` com o estado daquele momento (permissão `history`). O ao vivo continua
+ *    chegando normalmente; o painel decide o que mostrar.
  */
 
 /** Versão do protocolo; mudanças incompatíveis devem incrementá-la. */
@@ -70,8 +73,21 @@ export type ActionMessage = {
   };
 }[ActionName];
 
+/** Pede o estado de um servidor num horário passado (ms). */
+export interface HistoryRequestMessage {
+  t: 'history';
+  reqId: string;
+  server: ServerId;
+  at: number;
+}
+
 export type ClientMessage =
-  AuthMessage | SubscribeMessage | UnsubscribeMessage | ResyncMessage | ActionMessage;
+  | AuthMessage
+  | SubscribeMessage
+  | UnsubscribeMessage
+  | ResyncMessage
+  | ActionMessage
+  | HistoryRequestMessage;
 
 // ---------- Servidor → cliente ----------
 
@@ -118,6 +134,25 @@ export interface ActionResultMessage {
   error?: string;
 }
 
+/**
+ * Resposta a `history`. Com `ok`, `data` é o estado no horário `at` (recortado pelo escopo do
+ * usuário) e `status`, a situação da conexão com o PBX naquele momento. `from` é o horário
+ * mais antigo disponível (ou null, histórico vazio).
+ * Erros (`code`): forbidden | unavailable (histórico desligado) | not_found (sem dados no
+ * horário: antes do início ou depois do prazo de guarda).
+ */
+export interface HistoryStateMessage {
+  t: 'history_state';
+  reqId: string;
+  server: ServerId;
+  at: number;
+  ok: boolean;
+  code?: string;
+  from: number | null;
+  status?: ServerConnectionStatus | null;
+  data?: ServerSnapshot;
+}
+
 export interface ErrorMessage {
   t: 'error';
   code: string;
@@ -130,4 +165,5 @@ export type ServerMessage =
   | SnapshotMessage
   | DeltaMessage
   | ActionResultMessage
+  | HistoryStateMessage
   | ErrorMessage;

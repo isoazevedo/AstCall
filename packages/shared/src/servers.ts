@@ -25,4 +25,9 @@ export interface ServerInfo {
    * (standalone) e/ou do token (AzCall). Usado para destacar a queda de um tronco.
    */
   trunks?: string[];
+  /**
+   * O histórico (máquina do tempo) está disponível para este usuário neste servidor: o
+   * backend grava o histórico e o usuário tem a permissão `history`.
+   */
+  history?: boolean;
 }
