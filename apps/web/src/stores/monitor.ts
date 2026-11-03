@@ -63,7 +63,7 @@ export const useMonitorStore = defineStore('monitor', () => {
     const s = active.value;
     if (!s) return [];
     return Object.values(s.queues)
-      .map((q) => queueView(q, s.queueMembers, s.queueEntries))
+      .map((q) => queueView(q, s.queueMembers, s.queueEntries, s.queueForecasts[q.name] ?? null))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   });
 

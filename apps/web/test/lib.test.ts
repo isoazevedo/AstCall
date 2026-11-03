@@ -36,6 +36,7 @@ const snapshot = (epoch: number, seq: number): SnapshotMessage => ({
     queues: [],
     queueMembers: [],
     queueEntries: [],
+    queueForecasts: [],
   },
 });
 

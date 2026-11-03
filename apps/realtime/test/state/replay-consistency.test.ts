@@ -32,6 +32,7 @@ const KEYS = {
   queue: 'queues',
   queueMember: 'queueMembers',
   queueEntry: 'queueEntries',
+  queueForecast: 'queueForecasts',
 } as const satisfies Record<DeltaOp['entity'], keyof ServerSnapshot>;
 
 /** Estado do "navegador": um mapa por entidade, montado do snapshot e atualizado por deltas. */

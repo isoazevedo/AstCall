@@ -17,6 +17,8 @@ import {
   Users,
 } from 'lucide-vue-next';
 import ActionMenu, { type MenuItem } from './ActionMenu.ce.vue';
+import QueueForecastBlock from './QueueForecastBlock.ce.vue';
+import { etaText } from '../lib/forecast';
 import { useNow } from '../composables/useNow';
 import { formatDuration, strategyLabel, waitTone, type QueueView } from '../lib/view';
 import { useWidget } from '../composables/useWidget';
@@ -160,6 +162,9 @@ function ago(since: number | null): string {
         </div>
       </dl>
 
+      <!-- Previsão para os próximos minutos (calculada pelo backend) -->
+      <QueueForecastBlock v-if="queue.forecast" :forecast="queue.forecast" />
+
       <!-- Chamadores aguardando -->
       <section v-if="queue.waiting.length > 0" class="q-section">
         <h6><Clock :size="14" aria-hidden="true" /> Aguardando atendimento</h6>
@@ -171,6 +176,13 @@ function ago(since: number | null): string {
               <small v-if="e.callerId.name && e.callerId.name !== e.callerId.num">
                 {{ e.callerId.name }}
               </small>
+            </span>
+            <span
+              v-if="etaText(queue.forecast?.etaAt[e.uniqueid], now)"
+              class="eta"
+              title="Previsão de atendimento"
+            >
+              atende {{ etaText(queue.forecast?.etaAt[e.uniqueid], now) }}
             </span>
             <span class="ast-badge wait" :class="`tone-${waitTone(seconds(e.joinedAt))}`">
               {{ wait(e.joinedAt) }}
@@ -308,6 +320,11 @@ function ago(since: number | null): string {
 .waiting .who small {
   font-size: 0.75rem;
   color: var(--ast-text-muted);
+}
+.eta {
+  font-size: 0.75rem;
+  color: var(--ast-text-muted);
+  white-space: nowrap;
 }
 .wait {
   font-variant-numeric: tabular-nums;

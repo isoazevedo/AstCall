@@ -150,6 +150,7 @@ describe('ServerStore + handlers', () => {
       queues: [],
       queueMembers: [],
       queueEntries: [],
+      queueForecasts: [],
     });
     expect(store.flush()).toEqual([]);
   });

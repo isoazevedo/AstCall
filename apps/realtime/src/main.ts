@@ -3,6 +3,7 @@ import { PROTOCOL_VERSION, WS_PATH } from '@astcall/shared';
 import { ActionService, type ActionTarget } from './actions/index.js';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { AuditLog } from './audit/AuditLog.js';
+import { QueueForecaster } from './forecast/QueueForecaster.js';
 import {
   adminRoutes,
   authRoutes,
@@ -90,6 +91,7 @@ async function main(): Promise<void> {
 
   // ---- Uma conexão AMI + estado sincronizado + feed WebSocket por servidor Asterisk
   const recorders: AmiRecorder[] = [];
+  const forecastTimers: NodeJS.Timeout[] = [];
   const feeds = new Map<string, ServerFeed>();
   const actionTargets = new Map<string, ActionTarget>();
   const connections = config.servers.map((server) => {
@@ -118,6 +120,16 @@ async function main(): Promise<void> {
       recorders.push(recorder);
       log.warn({ server: server.id, file: recorder.file }, 'Gravando tráfego AMI (dados reais)');
     }
+    // Previsão das filas (Erlang C): histórico recente dos eventos + cálculo periódico
+    if (config.forecast.intervalMs > 0) {
+      const forecaster = new QueueForecaster(config.forecast);
+      conn.on('event', (ev) => forecaster.onEvent(ev));
+      forecastTimers.push(
+        setInterval(() => {
+          if (!sync.syncing && conn.status === 'ready') forecaster.update(store);
+        }, config.forecast.intervalMs),
+      );
+    }
     conn.start();
     return conn;
   });
@@ -143,6 +155,7 @@ async function main(): Promise<void> {
     stopping = true;
     log.info({ signal }, 'Encerrando...');
     clearInterval(pruneTimer);
+    for (const t of forecastTimers) clearInterval(t);
     hub.close();
     for (const feed of feeds.values()) feed.close();
     http.close();

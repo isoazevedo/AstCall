@@ -6,6 +6,7 @@ import type {
   Endpoint,
   Queue,
   QueueEntry,
+  QueueForecast,
   QueueMember,
 } from '@astcall/shared';
 
@@ -218,6 +219,8 @@ export interface QueueView {
   serviceLevel: number;
   serviceLevelPerf: number;
   waiting: QueueEntry[];
+  /** Previsão calculada pelo backend (null enquanto não chega). */
+  forecast: QueueForecast | null;
   members: QueueMemberView[];
   available: number;
   busy: number;
@@ -253,6 +256,7 @@ export function queueView(
   q: Queue,
   members: Record<string, QueueMember>,
   entries: Record<string, QueueEntry>,
+  forecast: QueueForecast | null = null,
 ): QueueView {
   const ms = Object.values(members)
     .filter((m) => m.queue === q.name)
@@ -267,6 +271,7 @@ export function queueView(
     talktime: q.talktime,
     serviceLevel: q.serviceLevel,
     serviceLevelPerf: q.serviceLevelPerf,
+    forecast,
     waiting: Object.values(entries)
       .filter((e) => e.queue === q.name)
       .sort((a, b) => a.position - b.position),

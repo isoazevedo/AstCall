@@ -9,6 +9,7 @@
 import { useNow } from '../composables/useNow';
 import { abandonRate, oldestWaitingSince } from '../lib/tv';
 import { formatDuration, waitTone, type QueueView } from '../lib/view';
+import { forecastView } from '../lib/forecast';
 
 defineProps<{ queues: QueueView[]; loading: boolean }>();
 
@@ -73,6 +74,20 @@ function longestWait(q: QueueView): number {
           <dd>{{ q.serviceLevelPerf.toFixed(0) }}%</dd>
         </div>
       </dl>
+
+      <!-- Previsão: só com número calculado (fila com movimento) -->
+      <p
+        v-if="q.forecast && q.forecast.slForecast !== null"
+        class="tv-forecast"
+        :class="`tone-text-${forecastView(q.forecast).tone}`"
+      >
+        <strong>{{ forecastView(q.forecast).riskLabel }}</strong>
+        · previsto {{ q.forecast.slForecast }}% (meta {{ q.forecast.slTarget }}%)
+        <template v-if="forecastView(q.forecast).missing > 0">
+          · faltam {{ forecastView(q.forecast).missing }}
+          {{ forecastView(q.forecast).missing === 1 ? 'atendente' : 'atendentes' }}
+        </template>
+      </p>
 
       <!-- Agentes por estado -->
       <div class="tv-agents">
@@ -164,6 +179,13 @@ function longestWait(q: QueueView): number {
 .tv-queue-stats small {
   font-size: 0.9rem;
   font-weight: 400;
+}
+.tv-forecast {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.tone-text-success {
+  color: var(--ast-success);
 }
 .tv-agents {
   display: flex;

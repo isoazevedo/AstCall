@@ -15,6 +15,7 @@ function clientState(snapshot: ServerSnapshot) {
     queue: new Map(snapshot.queues.map((q) => [q.name, q])),
     queueMember: new Map(snapshot.queueMembers.map((m) => [m.id, m])),
     queueEntry: new Map(snapshot.queueEntries.map((e) => [e.id, e])),
+    queueForecast: new Map((snapshot.queueForecasts ?? []).map((f) => [f.queue, f])),
   } as Record<string, Map<string, unknown>>;
   return {
     apply(ops: DeltaOp[]) {

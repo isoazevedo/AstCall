@@ -73,6 +73,7 @@ export class ScopeFilter {
       queues: s.queues.filter((q) => this.queueVisible(q.name)),
       queueMembers: s.queueMembers.filter((m) => this.queueVisible(m.queue)),
       queueEntries: s.queueEntries.filter((e) => this.queueVisible(e.queue)),
+      queueForecasts: (s.queueForecasts ?? []).filter((f) => this.queueVisible(f.queue)),
     };
   }
 }
@@ -167,6 +168,8 @@ function staticVisible(op: DeltaOp, f: ScopeFilter): boolean {
     case 'endpoint':
       return f.endpointVisible(op.id);
     case 'queue':
+      return f.queueVisible(op.id);
+    case 'queueForecast':
       return f.queueVisible(op.id);
     case 'queueMember':
     case 'queueEntry':

@@ -12,6 +12,7 @@ import type {
   EntityName,
   Queue,
   QueueEntry,
+  QueueForecast,
   QueueMember,
   ServerSnapshot,
 } from '@astcall/shared';
@@ -39,6 +40,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
   readonly queueMembers = new Map<string, QueueMember>();
   /** Chave: "<fila>|<uniqueid>". */
   readonly queueEntries = new Map<string, QueueEntry>();
+  readonly queueForecasts = new Map<string, QueueForecast>();
 
   // Índices auxiliares
   private readonly byLinkedid = new Map<string, Set<string>>();
@@ -62,6 +64,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     queue: new Set<string>(),
     queueMember: new Set<string>(),
     queueEntry: new Set<string>(),
+    queueForecast: new Set<string>(),
   };
 
   /** Última versão enviada de cada entidade ("entidade:id" → JSON), para evitar deltas repetidos. */
@@ -242,6 +245,14 @@ export class ServerStore extends EventEmitter<StoreEvents> {
       if (e.queue === name) this.removeEntry(name, e.uniqueid);
     this.queues.delete(name);
     this.dirty.queue.add(name);
+    this.setForecast(name, null);
+  }
+
+  /** Grava (ou apaga, com null) a previsão de uma fila. Vira delta só se algo mudou. */
+  setForecast(queue: string, forecast: QueueForecast | null): void {
+    if (forecast) this.queueForecasts.set(queue, forecast);
+    else this.queueForecasts.delete(queue);
+    this.dirty.queueForecast.add(queue);
   }
 
   /**
@@ -386,6 +397,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     this.collect('queue', this.queues, ops);
     this.collect('queueMember', this.queueMembers, ops);
     this.collect('queueEntry', this.queueEntries, ops);
+    this.collect('queueForecast', this.queueForecasts, ops);
     if (ops.length > 0) this.emit('deltas', ops);
     return ops;
   }
@@ -400,6 +412,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
       queues: [...this.queues.values()],
       queueMembers: [...this.queueMembers.values()],
       queueEntries: [...this.queueEntries.values()],
+      queueForecasts: [...this.queueForecasts.values()],
     });
   }
 
@@ -412,6 +425,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
     this.queues.clear();
     this.queueMembers.clear();
     this.queueEntries.clear();
+    this.queueForecasts.clear();
     this.byLinkedid.clear();
     this.byEndpoint.clear();
     this.hungUp.clear();

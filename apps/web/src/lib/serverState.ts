@@ -7,6 +7,7 @@ import type {
   Permission,
   Queue,
   QueueEntry,
+  QueueForecast,
   QueueMember,
   ServerConnectionStatus,
   ServerInfo,
@@ -36,6 +37,7 @@ export interface ServerState {
   queues: Record<string, Queue>;
   queueMembers: Record<string, QueueMember>;
   queueEntries: Record<string, QueueEntry>;
+  queueForecasts: Record<string, QueueForecast>;
 }
 
 export function createServerState(info: ServerInfo): ServerState {
@@ -55,6 +57,7 @@ export function createServerState(info: ServerInfo): ServerState {
     queues: {},
     queueMembers: {},
     queueEntries: {},
+    queueForecasts: {},
   };
 }
 
@@ -72,6 +75,7 @@ export function applySnapshot(state: ServerState, msg: SnapshotMessage): void {
   state.queues = byKey(msg.data.queues ?? [], (q) => q.name);
   state.queueMembers = byKey(msg.data.queueMembers ?? [], (m) => m.id);
   state.queueEntries = byKey(msg.data.queueEntries ?? [], (e) => e.id);
+  state.queueForecasts = byKey(msg.data.queueForecasts ?? [], (f) => f.queue);
   state.hasSnapshot = true;
 }
 
@@ -109,5 +113,7 @@ function tableOf(state: ServerState, entity: DeltaMessage['ops'][number]['entity
       return state.queueMembers as Record<string, unknown>;
     case 'queueEntry':
       return state.queueEntries as Record<string, unknown>;
+    case 'queueForecast':
+      return state.queueForecasts as Record<string, unknown>;
   }
 }

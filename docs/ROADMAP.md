@@ -617,6 +617,74 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 
 ---
 
+#### 26. Previsão de fila e copiloto do supervisor
+
+**O que é:** Antecipar problemas nas filas e sugerir a ação certa. Previsão de nível de serviço e
+de espera por chamador (Erlang C com ritmo de entrada, tempo médio de atendimento e atendentes
+disponíveis) e um "copiloto" que sugere ações já existentes no painel (retomar um atendente pausado,
+adicionar um ramal livre à fila), sempre com confirmação.
+
+**Por que fazer:** O painel hoje mostra o presente; o supervisor só reage depois que a fila estoura.
+Usa apenas dados que o backend já recebe. Plano detalhado em 2026-11-03.
+
+**Esforço estimado:** M
+**Impacto esperado:** Alto
+
+---
+
+#### 27. Máquina do tempo (histórico de eventos)
+
+**O que é:** Gravar os eventos do dia e permitir voltar o painel a qualquer horário ("o que estava
+acontecendo às 14:32?"), reaproveitando o replay que já existe nos testes. Base para a linha do
+tempo de cada atendente, rankings no modo TV e relatório de pausas — o que o CDR do AzCall não
+mostra.
+
+**Esforço estimado:** M
+**Impacto esperado:** Alto
+
+---
+
+#### 28. Qualidade de voz por chamada
+
+**O que é:** Usar os eventos RTCP (atraso, variação, perda de pacotes) para dar uma nota de
+qualidade (MOS) a cada chamada e avisar degradação de tronco antes da queda. Hoje o `eventfilter`
+descarta esses eventos: exige filtro seletivo e cuidado com o volume.
+
+**Esforço estimado:** M
+**Impacto esperado:** Médio
+
+---
+
+#### 29. IA ao vivo (transcrição e sentimento)
+
+**O que é:** Transcrever as chamadas em tempo real e analisar o tom (ex.: "cliente irritado na
+chamada do 2009"), com entrada em escuta num clique e resumo da operação em linguagem natural.
+Depende da captura de áudio pelo ARI (item 22), tem custo de transcrição e exige cuidado com a LGPD.
+
+**Configuração das chaves de IA (decisão de 2026-11-03):**
+
+- **Standalone:** chaves no `.env` do AstCall (ex.: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`), nunca
+  versionadas.
+- **Integrado ao AzCall:** usar a configuração que o AzCall já tem em tela (Configurações →
+  Integrações IA, `AiSettingsService`, chaves por empresa com o `.env` do AzCall como reserva), sem
+  duplicar cadastro. O mecanismo para o AstCall obter a chave da empresa fica para o detalhamento.
+
+**Esforço estimado:** G
+**Impacto esperado:** Alto
+
+---
+
+#### 30. Alertas de desconexão fora do navegador
+
+**O que é:** Avisar por WhatsApp ou e-mail quando um tronco (ou ramal vigiado) cai, mesmo sem
+nenhum painel aberto. No modo integrado, aproveitar a configuração de notificações do AzCall
+(WhatsApp/e-mail por empresa). Complementa os alertas no navegador (2026-11-03).
+
+**Esforço estimado:** M
+**Impacto esperado:** Médio
+
+---
+
 ## Critérios de priorização
 
 | Critério                                        | Peso  |
@@ -675,5 +743,6 @@ As oportunidades abaixo foram identificadas e priorizadas por impacto vs. esfor�
 | 2026-10-17 | Claude Code | Item 17 implementado (usuários pela tela, permissão `users`); credencial SIP removida do histórico das gravações e repositórios publicados no GitHub                                                       |
 | 2026-10-17 | Claude Code | Documentação para clientes e testers: README novo, `docs/guias/` (uso, instalação standalone e AzCall, Asterisk, widgets, demonstração) com prints do PBX simulado (`npm run demo`, `npm run screenshots`) |
 | 2026-10-19 | Claude Code | Repositório público: licença MIT, README com resumo em inglês, GIF e selos, formulários de issue, Discussions com tópico de feedback, tópicos e descrição no GitHub                                        |
+| 2026-11-03 | Claude Code | Novos itens 26–30: previsão de fila e copiloto, máquina do tempo, qualidade de voz, IA ao vivo (chaves no `.env` ou na tela de IA do AzCall) e alertas fora do navegador                                   |
 | 2026-11-03 | Claude Code | Alertas de desconexão (sino, seção Desconectados, som, notificação do navegador, repetição, tolerância, troncos em destaque, tela no modo TV); `offlineSince` no backend; claim `trunks` (contrato 1.4)    |
 | 2026-10-31 | Claude Code | Painel com as abas Visão geral (chamadas, ramais e filas), Ramais, Chamadas e Filas; guia de uso e prints atualizados                                                                                      |

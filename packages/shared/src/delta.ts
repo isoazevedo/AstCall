@@ -5,6 +5,7 @@ import type {
   Endpoint,
   Queue,
   QueueEntry,
+  QueueForecast,
   QueueMember,
 } from './entities.js';
 
@@ -17,6 +18,7 @@ export interface EntityMap {
   queue: Queue;
   queueMember: QueueMember;
   queueEntry: QueueEntry;
+  queueForecast: QueueForecast;
 }
 
 export type EntityName = keyof EntityMap;
@@ -40,4 +42,5 @@ export interface ServerSnapshot {
   queues: Queue[];
   queueMembers: QueueMember[];
   queueEntries: QueueEntry[];
+  queueForecasts: QueueForecast[];
 }

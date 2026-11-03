@@ -168,6 +168,43 @@ export interface QueueMember {
   membership: string;
 }
 
+/**
+ * Previsão de uma fila (calculada pelo backend a cada poucos segundos). Chave: nome da fila.
+ *
+ * Usa a janela recente (padrão 15 min): ritmo de entrada, tempo médio de atendimento e
+ * atendentes disponíveis, com a fórmula Erlang C (padrão de call center).
+ */
+export interface QueueForecast {
+  queue: string;
+  /**
+   * warming = ainda coletando dados (logo após o backend iniciar);
+   * idle = sem entradas na janela (sem movimento para prever);
+   * ok = previsão válida.
+   */
+  status: 'warming' | 'idle' | 'ok';
+  /** Janela usada no cálculo (minutos). */
+  windowMin: number;
+  /** Ritmo de entrada (chamadas por minuto) na janela. */
+  arrivalsPerMin: number;
+  /** Tempo médio de atendimento (s) na janela; null se ainda não houve atendimento. */
+  ahtSec: number | null;
+  /** Atendentes logados, não pausados e registrados. */
+  agentsAvailable: number;
+  /** Atendentes necessários para atingir a meta; null sem dados suficientes. */
+  agentsNeeded: number | null;
+  /** Nível de serviço previsto (%); null sem dados suficientes. */
+  slForecast: number | null;
+  /** Meta de nível de serviço (%) e o tempo da meta (s). */
+  slTarget: number;
+  slSeconds: number;
+  /** Ritmo de entrada recente comparado ao anterior. */
+  trend: 'up' | 'stable' | 'down';
+  /** ok = dentro da meta; warn = abaixo da meta; high = muito abaixo ou sem atendente com espera. */
+  risk: 'ok' | 'warn' | 'high';
+  /** Previsão de atendimento por chamador aguardando: uniqueid → horário estimado (ms). */
+  etaAt: Record<string, number>;
+}
+
 /** Chamador aguardando numa fila. Chave: "<fila>|<uniqueid>". */
 export interface QueueEntry {
   id: string;

@@ -46,6 +46,7 @@ const KEYS: Record<DeltaOp['entity'], keyof ServerSnapshot> = {
   queue: 'queues',
   queueMember: 'queueMembers',
   queueEntry: 'queueEntries',
+  queueForecast: 'queueForecasts',
 };
 
 let messages = 0;

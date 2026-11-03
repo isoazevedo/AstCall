@@ -24,6 +24,11 @@ export const envSchema = z.object({
   /** Intervalos das reconciliações periódicas (ms); 0 desliga. */
   QUEUE_REFRESH_MS: z.coerce.number().int().min(0).default(60_000),
   CHANNEL_RECONCILE_MS: z.coerce.number().int().min(0).default(60_000),
+  /** Previsão das filas: intervalo de cálculo (ms; 0 desliga), janela (min) e metas. */
+  FORECAST_INTERVAL_MS: z.coerce.number().int().min(0).default(5_000),
+  FORECAST_WINDOW_MIN: z.coerce.number().int().min(5).max(120).default(15),
+  SL_TARGET_PERCENT: z.coerce.number().int().min(1).max(100).default(80),
+  SL_DEFAULT_SECONDS: z.coerce.number().int().min(1).max(600).default(20),
 
   AUTH_MODE: z.enum(['local', 'external', 'both']).default('local'),
   JWT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
