@@ -103,6 +103,20 @@ describe('previsão das filas', () => {
     expect(fc.agentsNeeded).toBeGreaterThan(9);
   });
 
+  it('sem atendimento concluído ainda: usa o tempo médio padrão, marcado como estimativa', () => {
+    const f = forecaster();
+    f.onEvent({ event: 'QueueCallerJoin', queue: 'suporte' }, T0 - 2 * MIN);
+    f.onEvent({ event: 'QueueCallerJoin', queue: 'suporte' }, T0 - MIN);
+    const fc = f.forecast(scenario({ free: 2 }), 'suporte', T0);
+    expect(fc).toMatchObject({ ahtSec: 180, ahtEstimated: true });
+    expect(fc.slForecast).not.toBeNull();
+    feed(f, 1, 60);
+    expect(f.forecast(scenario({ free: 2 }), 'suporte', T0)).toMatchObject({
+      ahtSec: 60,
+      ahtEstimated: false,
+    });
+  });
+
   it('sem movimento na janela: "idle", sem previsão numérica', () => {
     const fc = forecaster().forecast(scenario({ free: 2 }), 'suporte', T0);
     expect(fc).toMatchObject({ status: 'idle', slForecast: null, agentsNeeded: null, risk: 'ok' });

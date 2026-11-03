@@ -8,6 +8,7 @@ const base: QueueForecast = {
   windowMin: 15,
   arrivalsPerMin: 2.4,
   ahtSec: 92,
+  ahtEstimated: false,
   agentsAvailable: 3,
   agentsNeeded: 6,
   slForecast: 0,
@@ -53,9 +54,16 @@ describe('forecastView', () => {
       agentsNeeded: null,
     });
     expect(idle.slText).toBeNull();
+    expect(idle).toMatchObject({ riskLabel: 'Sem movimento', tone: 'secondary' });
     expect(idle.note).toBe('Sem entradas nos últimos 15 min.');
     expect(forecastView({ ...base, status: 'warming' }).note).toMatch(/Coletando dados/);
   });
+});
+
+it('tempo médio padrão aparece como estimativa inicial', () => {
+  expect(forecastView({ ...base, ahtSec: 180, ahtEstimated: true }).aht).toBe(
+    '3:00 (estimativa inicial)',
+  );
 });
 
 describe('etaText', () => {

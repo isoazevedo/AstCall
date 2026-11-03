@@ -32,7 +32,11 @@ const RISK: Record<QueueForecast['risk'], { label: string; tone: Tone }> = {
 };
 
 export function forecastView(f: QueueForecast): ForecastView {
-  const r = RISK[f.risk];
+  // Sem previsão calculada (fila sem entradas) e nada em risco: não há meta a cumprir agora
+  const r =
+    f.slForecast === null && f.risk === 'ok'
+      ? { label: 'Sem movimento', tone: 'secondary' as Tone }
+      : RISK[f.risk];
   const missing = f.agentsNeeded === null ? 0 : Math.max(0, f.agentsNeeded - f.agentsAvailable);
   const per = f.arrivalsPerMin.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
   return {
@@ -49,7 +53,10 @@ export function forecastView(f: QueueForecast): ForecastView {
     missing,
     arrivals: `${per} ${f.arrivalsPerMin === 1 ? 'chamada' : 'chamadas'}/min`,
     trend: f.trend,
-    aht: f.ahtSec === null ? null : formatDuration(f.ahtSec),
+    aht:
+      f.ahtSec === null
+        ? null
+        : `${formatDuration(f.ahtSec)}${f.ahtEstimated ? ' (estimativa inicial)' : ''}`,
     note:
       f.status === 'warming'
         ? 'Coletando dados desde o início do monitoramento: a previsão fica mais precisa nos próximos minutos.'

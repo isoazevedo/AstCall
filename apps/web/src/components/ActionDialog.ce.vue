@@ -59,7 +59,7 @@ watch(
     reason.value = '';
     allQueues.value = false;
     spyMode.value = 'listen';
-    endpoint.value = '';
+    endpoint.value = d?.kind === 'queueAdd' ? (d.preset ?? '') : '';
     penalty.value = d?.kind === 'penalty' ? d.penalty : 0;
     startPaused.value = false;
     error.value = '';

@@ -28,7 +28,13 @@ export interface AppConfig {
   auditFile: string | undefined;
   queueRefreshMs: number;
   channelReconcileMs: number;
-  forecast: { intervalMs: number; windowMin: number; slTarget: number; defaultSlSeconds: number };
+  forecast: {
+    intervalMs: number;
+    windowMin: number;
+    slTarget: number;
+    defaultSlSeconds: number;
+    defaultAhtSeconds: number;
+  };
   /** Pasta do Web Component compilado. */
   staticDir: string;
   auth: AuthConfig;
@@ -139,6 +145,7 @@ export function buildConfig(
       windowMin: env.FORECAST_WINDOW_MIN,
       slTarget: env.SL_TARGET_PERCENT,
       defaultSlSeconds: env.SL_DEFAULT_SECONDS,
+      defaultAhtSeconds: env.DEFAULT_AHT_SECONDS,
     },
     staticDir: resolvePath(rootDir, env.STATIC_DIR),
     auth: buildAuth(env, rootDir),

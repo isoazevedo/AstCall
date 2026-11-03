@@ -627,6 +627,14 @@ adicionar um ramal livre à fila), sempre com confirmação.
 **Por que fazer:** O painel hoje mostra o presente; o supervisor só reage depois que a fila estoura.
 Usa apenas dados que o backend já recebe. Plano detalhado em 2026-11-03.
 
+- [x] Fase 1 — cálculo no backend (`QueueForecaster`, Erlang C, janela de 15 min, meta `SL_TARGET_PERCENT`)
+- [x] Fase 2 — bloco "Previsão" no card de fila, "atende ~X min" por chamador e linha no modo TV
+- [x] Fase 3 — card "Sugestões" (copiloto): retomar pausados e adicionar ramais livres em fila em
+      risco, aviso de pausa longa (30 min, motivos ignoráveis), dispensar por 10 min; só para quem tem
+      `queue` ou `queue_manage`; sempre pelo diálogo de confirmação. Também: tempo médio padrão
+      (`DEFAULT_AHT_SECONDS`) até o primeiro atendimento e selo "Sem movimento"
+- [ ] Fase 4 — onda de "horário de pico" no simulador, guias e prints
+
 **Esforço estimado:** M
 **Impacto esperado:** Alto
 
@@ -746,3 +754,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-11-03 | Claude Code | Novos itens 26–30: previsão de fila e copiloto, máquina do tempo, qualidade de voz, IA ao vivo (chaves no `.env` ou na tela de IA do AzCall) e alertas fora do navegador                                   |
 | 2026-11-03 | Claude Code | Alertas de desconexão (sino, seção Desconectados, som, notificação do navegador, repetição, tolerância, troncos em destaque, tela no modo TV); `offlineSince` no backend; claim `trunks` (contrato 1.4)    |
 | 2026-10-31 | Claude Code | Painel com as abas Visão geral (chamadas, ramais e filas), Ramais, Chamadas e Filas; guia de uso e prints atualizados                                                                                      |
+| 2026-11-03 | Claude Code | Item 26, fases 1–3: previsão das filas (backend e painel) e card "Sugestões" do copiloto; tempo médio padrão e selo "Sem movimento"                                                                        |

@@ -186,8 +186,13 @@ export interface QueueForecast {
   windowMin: number;
   /** Ritmo de entrada (chamadas por minuto) na janela. */
   arrivalsPerMin: number;
-  /** Tempo médio de atendimento (s) na janela; null se ainda não houve atendimento. */
+  /** Tempo médio de atendimento (s) na janela (ou a média do Asterisk, ou o padrão). */
   ahtSec: number | null;
+  /**
+   * true = ainda não houve atendimento concluído: `ahtSec` é o valor padrão configurado
+   * (estimativa inicial), até o primeiro atendimento terminar.
+   */
+  ahtEstimated: boolean;
   /** Atendentes logados, não pausados e registrados. */
   agentsAvailable: number;
   /** Atendentes necessários para atingir a meta; null sem dados suficientes. */

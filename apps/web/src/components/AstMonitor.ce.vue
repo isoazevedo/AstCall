@@ -21,7 +21,7 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-vue-next';
-import { useWidgetRoot } from '../composables/useWidget';
+import { useWidget, useWidgetRoot } from '../composables/useWidget';
 import { useMonitorStore } from '../stores/monitor';
 import CallList from './CallList.ce.vue';
 import EndpointGrid from './EndpointGrid.ce.vue';
@@ -31,6 +31,7 @@ import ToastHost from './ToastHost.ce.vue';
 import TvBoard from './TvBoard.ce.vue';
 import DisconnectBell from './DisconnectBell.ce.vue';
 import DisconnectPanel from './DisconnectPanel.ce.vue';
+import CopilotPanel from './CopilotPanel.ce.vue';
 import { useDisconnectAlerts } from '../composables/useDisconnectAlerts';
 
 /**
@@ -62,6 +63,10 @@ const owner = useWidgetRoot(props, () => emit('auth-required'));
 /** Alertas de desconexão (sino no cabeçalho + seção "Desconectados"). */
 const alerts = useDisconnectAlerts(owner);
 const showDown = computed(() => alerts.prefs.value.enabled && alerts.alerting.value.length > 0);
+
+/** Sugestões do copiloto: só para quem pode agir nas filas (pausar ou gerenciar membros). */
+const { can } = useWidget();
+const showCopilot = computed(() => can('queue') || can('queue_manage'));
 
 /** Selo de conexão no canto superior. */
 const badge = computed(() => {
@@ -192,6 +197,7 @@ const stats = computed(() => {
       :endpoints="store.endpoints"
       :loading="!store.active?.hasSnapshot"
     />
+    <CopilotPanel v-if="showCopilot && shows('queues') && store.queues.length" />
     <QueuePanel
       v-if="shows('queues')"
       :queues="store.queues"

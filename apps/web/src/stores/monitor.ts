@@ -234,8 +234,11 @@ export type ActionDialog =
   | { kind: 'originate'; from: string }
   | { kind: 'spy'; uniqueid: string; label: string }
   | { kind: 'pause'; queue: string; interface: string; label: string; pause: boolean }
-  /** Adicionar membro: `members` = ramais que já estão na fila (saem da lista de opções). */
-  | { kind: 'queueAdd'; queue: string; members: string[] }
+  /**
+   * Adicionar membro: `members` = ramais que já estão na fila (saem da lista de opções);
+   * `preset` = ramal já escolhido ao abrir (sugestão do copiloto).
+   */
+  | { kind: 'queueAdd'; queue: string; members: string[]; preset?: string }
   | { kind: 'queueRemove'; queue: string; interface: string; label: string }
   | {
       kind: 'penalty';

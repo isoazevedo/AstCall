@@ -29,6 +29,7 @@ export const envSchema = z.object({
   FORECAST_WINDOW_MIN: z.coerce.number().int().min(5).max(120).default(15),
   SL_TARGET_PERCENT: z.coerce.number().int().min(1).max(100).default(80),
   SL_DEFAULT_SECONDS: z.coerce.number().int().min(1).max(600).default(20),
+  DEFAULT_AHT_SECONDS: z.coerce.number().int().min(10).max(3600).default(180),
 
   AUTH_MODE: z.enum(['local', 'external', 'both']).default('local'),
   JWT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),

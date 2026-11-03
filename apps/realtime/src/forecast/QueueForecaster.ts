@@ -10,6 +10,8 @@ export interface ForecastOptions {
   slTarget?: number;
   /** Tempo da meta (s) quando a fila não tem `servicelevel` configurado. */
   defaultSlSeconds?: number;
+  /** Tempo médio de atendimento (s) usado enquanto a fila não teve atendimento concluído. */
+  defaultAhtSeconds?: number;
   /** Início do monitoramento (ms): antes de completar uma janela, a previsão está "aquecendo". */
   startedAt?: number;
 }
@@ -43,12 +45,14 @@ export class QueueForecaster {
   private readonly windowMs: number;
   private readonly slTarget: number;
   private readonly defaultSlSeconds: number;
+  private readonly defaultAht: number;
   private readonly startedAt: number;
 
   constructor(options: ForecastOptions = {}) {
     this.windowMs = (options.windowMin ?? 15) * 60_000;
     this.slTarget = options.slTarget ?? 80;
     this.defaultSlSeconds = options.defaultSlSeconds ?? 20;
+    this.defaultAht = options.defaultAhtSeconds ?? 180;
     this.startedAt = options.startedAt ?? Date.now();
   }
 
@@ -91,12 +95,15 @@ export class QueueForecaster {
     const answers = h.answers.filter((a) => a.at >= from);
     const arrivalsPerMin = joins.length / (windowMs / 60_000);
 
-    // Tempo médio de atendimento: o da janela; sem atendimento na janela, a média do Asterisk.
-    const aht = answers.length
-      ? answers.reduce((s, a) => s + a.talk, 0) / answers.length
+    // Tempo médio de atendimento: o da janela; sem atendimento na janela, a média do Asterisk;
+    // sem nenhum dos dois, o padrão configurado (estimativa inicial, marcada como tal).
+    const measured = answers.length
+      ? answers.reduce((sum, a) => sum + a.talk, 0) / answers.length
       : q && q.talktime > 0
         ? q.talktime
         : null;
+    const ahtEstimated = measured === null;
+    const aht = measured ?? this.defaultAht;
 
     // Atendentes disponíveis: logados na fila, não pausados e com telefone registrado.
     const members = [...store.queueMembers.values()].filter(
@@ -130,7 +137,8 @@ export class QueueForecaster {
       status: warming ? 'warming' : joins.length === 0 ? 'idle' : 'ok',
       windowMin: Math.round(windowMs / 60_000),
       arrivalsPerMin: Math.round(arrivalsPerMin * 10) / 10,
-      ahtSec: aht === null ? null : Math.round(aht),
+      ahtSec: Math.round(aht),
+      ahtEstimated,
       agentsAvailable: agents,
       agentsNeeded: needed,
       slForecast,
