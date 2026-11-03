@@ -30,6 +30,11 @@ export const envSchema = z.object({
   SL_TARGET_PERCENT: z.coerce.number().int().min(1).max(100).default(80),
   SL_DEFAULT_SECONDS: z.coerce.number().int().min(1).max(600).default(20),
   DEFAULT_AHT_SECONDS: z.coerce.number().int().min(10).max(3600).default(180),
+  /** Histórico (máquina do tempo): liga/desliga, arquivo, dias guardados e intervalo das fotos. */
+  HISTORY_ENABLED: z.stringbool().default(true),
+  HISTORY_DB_FILE: z.string().min(1).default('data/history.sqlite'),
+  HISTORY_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+  HISTORY_CHECKPOINT_MIN: z.coerce.number().int().min(1).max(60).default(5),
 
   AUTH_MODE: z.enum(['local', 'external', 'both']).default('local'),
   JWT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),

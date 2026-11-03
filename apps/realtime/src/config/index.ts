@@ -35,6 +35,8 @@ export interface AppConfig {
     defaultSlSeconds: number;
     defaultAhtSeconds: number;
   };
+  /** Histórico (máquina do tempo); undefined = desligado. */
+  history: { dbFile: string; days: number; checkpointMs: number } | undefined;
   /** Pasta do Web Component compilado. */
   staticDir: string;
   auth: AuthConfig;
@@ -147,6 +149,13 @@ export function buildConfig(
       defaultSlSeconds: env.SL_DEFAULT_SECONDS,
       defaultAhtSeconds: env.DEFAULT_AHT_SECONDS,
     },
+    history: env.HISTORY_ENABLED
+      ? {
+          dbFile: resolvePath(rootDir, env.HISTORY_DB_FILE),
+          days: env.HISTORY_DAYS,
+          checkpointMs: env.HISTORY_CHECKPOINT_MIN * 60_000,
+        }
+      : undefined,
     staticDir: resolvePath(rootDir, env.STATIC_DIR),
     auth: buildAuth(env, rootDir),
   };

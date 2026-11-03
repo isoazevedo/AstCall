@@ -4,6 +4,8 @@ import { ActionService, type ActionTarget } from './actions/index.js';
 import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { AuditLog } from './audit/AuditLog.js';
 import { QueueForecaster } from './forecast/QueueForecaster.js';
+import { HistoryRecorder } from './history/HistoryRecorder.js';
+import { HistoryStore } from './history/HistoryStore.js';
 import {
   adminRoutes,
   authRoutes,
@@ -89,6 +91,19 @@ async function main(): Promise<void> {
   }
   const pruneTimer = setInterval(() => users?.pruneSessions(), 60 * 60_000);
 
+  // ---- Histórico (máquina do tempo): estado gravado em SQLite, guardado por N dias
+  let history: HistoryStore | undefined;
+  const historyRecorders: HistoryRecorder[] = [];
+  let historyPruneTimer: NodeJS.Timeout | undefined;
+  if (config.history) {
+    const { dbFile, days } = config.history;
+    history = await HistoryStore.open(dbFile);
+    const prune = () => history?.prune(Date.now() - days * 86_400_000);
+    prune();
+    historyPruneTimer = setInterval(prune, 60 * 60_000);
+    log.info({ file: dbFile, days }, 'Histórico do estado ligado');
+  }
+
   // ---- Uma conexão AMI + estado sincronizado + feed WebSocket por servidor Asterisk
   const recorders: AmiRecorder[] = [];
   const forecastTimers: NodeJS.Timeout[] = [];
@@ -108,6 +123,11 @@ async function main(): Promise<void> {
     const feed = new ServerFeed(server.id, server.name, { store, sync, conn });
     feed.trunks = server.trunks ?? [];
     feeds.set(server.id, feed);
+    if (history && config.history) {
+      historyRecorders.push(
+        new HistoryRecorder(server.id, history, { store, sync, conn }, config.history),
+      );
+    }
     actionTargets.set(server.id, { conn, store });
     store.on('deltas', (ops) =>
       log.debug(
@@ -155,6 +175,9 @@ async function main(): Promise<void> {
     stopping = true;
     log.info({ signal }, 'Encerrando...');
     clearInterval(pruneTimer);
+    clearInterval(historyPruneTimer);
+    for (const r of historyRecorders) r.close();
+    history?.close();
     for (const t of forecastTimers) clearInterval(t);
     hub.close();
     for (const feed of feeds.values()) feed.close();

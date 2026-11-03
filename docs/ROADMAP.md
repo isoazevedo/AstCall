@@ -648,6 +648,17 @@ acontecendo às 14:32?"), reaproveitando o replay que já existe nos testes. Bas
 tempo de cada atendente, rankings no modo TV e relatório de pausas — o que o CDR do AzCall não
 mostra.
 
+Decisões (2026-11-03): permissão nova `history` (`astcall.history` no AzCall, contrato 1.5);
+guardar 7 dias (`HISTORY_DAYS`); ligado por padrão (`HISTORY_ENABLED`).
+
+- [x] Fase 1 — gravação: SQLite (`data/history.sqlite`) com fotos do estado a cada 5 min e após
+      cada ressincronização, lotes de deltas e status da conexão; reconstrução "estado às HH:MM"
+      (`applyOps` em `packages/shared`); limpeza pelo prazo; conferido contra as gravações reais;
+      lotes e fotos comprimidos (~25 MB/dia na demo com 16 chamadas simultâneas)
+- [ ] Fase 2 — consulta pelo WebSocket com filtro de empresa e a permissão `history`
+- [ ] Fase 3 — tela: barra de horário, painel congelado no momento, sem ações
+- [ ] Fase 4 — reprodução (1x/10x/60x), guias e prints
+
 **Esforço estimado:** M
 **Impacto esperado:** Alto
 
@@ -757,3 +768,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-10-31 | Claude Code | Painel com as abas Visão geral (chamadas, ramais e filas), Ramais, Chamadas e Filas; guia de uso e prints atualizados                                                                                      |
 | 2026-11-03 | Claude Code | Item 26, fases 1–3: previsão das filas (backend e painel) e card "Sugestões" do copiloto; tempo médio padrão e selo "Sem movimento"                                                                        |
 | 2026-11-03 | Claude Code | Item 26 concluído (fase 4): horário de pico no simulador, guias, README e prints da previsão e das sugestões                                                                                               |
+| 2026-11-03 | Claude Code | Item 27, fase 1: gravação do histórico do estado (fotos + deltas em SQLite) e reconstrução por horário                                                                                                     |

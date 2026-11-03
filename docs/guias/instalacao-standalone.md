@@ -94,6 +94,22 @@ Previsão das filas (opcional, todos com padrão):
 | `DEFAULT_AHT_SECONDS`  | 180    | atendimento médio (s) usado até a fila ter um atendimento concluído    |
 | `FORECAST_INTERVAL_MS` | 5000   | de quanto em quanto tempo a previsão é recalculada                     |
 
+Histórico (máquina do tempo), ligado por padrão:
+
+| Variável                 | Padrão                | O que define                                            |
+| ------------------------ | --------------------- | ------------------------------------------------------- |
+| `HISTORY_ENABLED`        | true                  | grava o estado para rever o painel em horários passados |
+| `HISTORY_DB_FILE`        | `data/history.sqlite` | arquivo do histórico                                    |
+| `HISTORY_DAYS`           | 7                     | dias guardados (o mais antigo é apagado sozinho)        |
+| `HISTORY_CHECKPOINT_MIN` | 5                     | intervalo (min) entre as fotos completas do estado      |
+
+O histórico guarda números e nomes de quem ligou: defina `HISTORY_DAYS` conforme a política de
+privacidade da empresa (LGPD).
+
+Espaço em disco: o histórico é comprimido; uma operação com ~16 chamadas simultâneas o dia
+inteiro ocupa cerca de 25 MB por dia (≈ 170 MB com 7 dias). O que passa do prazo é apagado
+sozinho, de hora em hora.
+
 ## 4. Chaves e primeiro administrador
 
 ```bash
@@ -176,7 +192,8 @@ pm2 restart astcall
 ## 9. Backup
 
 Guarde `/opt/astcall/.env`, `config/servers.json`, `keys/` e `data/users.sqlite` (usuários e
-sessões). O estado das chamadas não precisa de backup: vem do Asterisk a cada conexão.
+sessões). O estado das chamadas não precisa de backup: vem do Asterisk a cada conexão. O
+`data/history.sqlite` (histórico) é opcional no backup: perdê-lo só apaga os dias já gravados.
 
 ## Problemas comuns
 
