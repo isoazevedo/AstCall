@@ -27,7 +27,9 @@ const snapshot = (epoch: number, seq: number): SnapshotMessage => ({
   epoch,
   seq,
   data: {
-    endpoints: [{ id: '9001', deviceState: 'NOT_INUSE', contacts: [], activeChannels: 0 }],
+    endpoints: [
+      { id: '9001', deviceState: 'NOT_INUSE', contacts: [], activeChannels: 0, offlineSince: null },
+    ],
     channels: [],
     bridges: [],
     calls: [],
@@ -49,7 +51,7 @@ const endpointUpsert = (state: 'INUSE' | 'NOT_INUSE'): DeltaOp => ({
   op: 'upsert',
   entity: 'endpoint',
   id: '9001',
-  data: { id: '9001', deviceState: state, contacts: [], activeChannels: 1 },
+  data: { id: '9001', deviceState: state, contacts: [], activeChannels: 1, offlineSince: null },
 });
 
 describe('serverState', () => {

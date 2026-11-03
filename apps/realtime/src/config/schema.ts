@@ -56,6 +56,8 @@ export const serverEntrySchema = z.object({
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535).default(5038),
   enabled: z.boolean().default(true),
+  /** Endpoints que são troncos (operadora), para o painel destacar a queda deles. */
+  trunks: z.array(z.string().min(1)).default([]),
 });
 
 export const serversFileSchema = z.object({

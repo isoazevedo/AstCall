@@ -95,6 +95,11 @@ export interface TokenClaims {
   scope?: Record<ServerId, ServerScope>;
   /** Ramal do usuário (sugestão nos diálogos de "Ligar" e escuta). */
   extension?: string;
+  /**
+   * Troncos por servidor (opcional), ex.: { "pbx1": ["Avoip"] }. O AzCall informa quais
+   * endpoints são troncos para o painel destacar a queda deles.
+   */
+  trunks?: Record<ServerId, string[]>;
 }
 
 /** O que um usuário com escopo pode ver/agir num servidor. */

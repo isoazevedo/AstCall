@@ -103,7 +103,9 @@ async function main(): Promise<void> {
       queueRefreshMs: config.queueRefreshMs,
       channelReconcileMs: config.channelReconcileMs,
     });
-    feeds.set(server.id, new ServerFeed(server.id, server.name, { store, sync, conn }));
+    const feed = new ServerFeed(server.id, server.name, { store, sync, conn });
+    feed.trunks = server.trunks ?? [];
+    feeds.set(server.id, feed);
     actionTargets.set(server.id, { conn, store });
     store.on('deltas', (ops) =>
       log.debug(

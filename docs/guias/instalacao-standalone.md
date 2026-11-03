@@ -49,10 +49,20 @@ cp config/servers.example.json config/servers.json
 ```json
 {
   "servers": [
-    { "id": "pbx1", "name": "PBX Matriz", "host": "127.0.0.1", "port": 5038, "enabled": true }
+    {
+      "id": "pbx1",
+      "name": "PBX Matriz",
+      "host": "127.0.0.1",
+      "port": 5038,
+      "enabled": true,
+      "trunks": ["operadora"]
+    }
   ]
 }
 ```
+
+`trunks` (opcional) lista os endpoints que são troncos da operadora: o painel os marca como
+"tronco" e destaca a queda deles nos alertas de desconexão.
 
 `.env` — o essencial:
 

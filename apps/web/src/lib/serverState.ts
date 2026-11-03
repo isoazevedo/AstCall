@@ -23,6 +23,8 @@ export interface ServerState {
   status: ServerConnectionStatus;
   /** Permissões do usuário neste servidor (para mostrar os botões de ação). */
   permissions: Permission[];
+  /** Endpoints que são troncos (operadora), informados no login. */
+  trunks: string[];
   /** Já recebeu um snapshot do epoch atual (o estado na tela é confiável)? */
   hasSnapshot: boolean;
   epoch: number | null;
@@ -42,6 +44,7 @@ export function createServerState(info: ServerInfo): ServerState {
     name: info.name,
     status: info.status,
     permissions: info.permissions ?? [],
+    trunks: info.trunks ?? [],
     hasSnapshot: false,
     epoch: null,
     seq: 0,

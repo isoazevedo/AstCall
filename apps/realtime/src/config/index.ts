@@ -11,7 +11,9 @@ import { envSchema, serversFileSchema, type Env, type ServerEntry } from './sche
 export const ROOT_DIR = resolve(import.meta.dirname, '../../../..');
 
 /** Configuração de um servidor Asterisk, já com as credenciais do AMI. */
-export interface AmiServerConfig extends ServerEntry {
+export interface AmiServerConfig extends Omit<ServerEntry, 'trunks'> {
+  /** Troncos do servers.json (ver ServerInfo.trunks). */
+  trunks?: string[];
   username: string;
   secret: string;
 }

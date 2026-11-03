@@ -280,6 +280,7 @@ class Session implements FeedSubscriber {
         name: f.name,
         status: f.status,
         permissions: permissionsFor(claims.perms, f.serverId),
+        trunks: trunksFor(claims, f),
       })),
     });
     if (first) this.log.info('Cliente WebSocket autenticado');
@@ -316,4 +317,18 @@ class Session implements FeedSubscriber {
       this.close(WS_CLOSE.TOKEN_EXPIRED, 'token expirado');
     }, delay);
   }
+}
+
+/**
+ * Troncos de um servidor para este usuário: os do servers.json somados aos do token. Com
+ * escopo de empresa, só os troncos que a empresa enxerga (não revela os de outras).
+ */
+export function trunksFor(
+  claims: Pick<TokenClaims, 'trunks' | 'scope'>,
+  feed: Pick<ServerFeed, 'trunks' | 'serverId'>,
+): string[] {
+  const all = new Set([...feed.trunks, ...(claims.trunks?.[feed.serverId] ?? [])]);
+  const scope = claims.scope?.[feed.serverId];
+  const visible = scope ? [...all].filter((t) => scope.endpoints.includes(t)) : [...all];
+  return visible.sort();
 }

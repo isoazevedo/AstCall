@@ -28,6 +28,8 @@ import {
 } from '../lib/tv';
 import TvCalls from './TvCalls.ce.vue';
 import TvQueues from './TvQueues.ce.vue';
+import TvDown from './TvDown.ce.vue';
+import { downItems, loadAlertPrefs } from '../lib/disconnects';
 
 const props = defineProps<{ rotate?: string | number; badge: { tone: string; text: string } }>();
 
@@ -41,9 +43,27 @@ const screen = ref<TvScreen>(prefs.screen);
 
 watch([rotating, screen], () => saveTvPrefs({ rotate: rotating.value, screen: screen.value }));
 
-/** Sem filas no escopo (ex.: empresa sem fila): a tela de filas sai do rodízio. */
+const now = useNow();
+
+/**
+ * Desconectados para a TV: as quedas vigiadas que passaram da tolerância (configuração do
+ * sino neste navegador). Na TV a tela aparece mesmo com os alertas sonoros desligados.
+ */
+const alertPrefs = { ...loadAlertPrefs(), enabled: true };
+const down = computed(() =>
+  downItems(store.endpoints, alertPrefs, now.value).filter((d) => d.alerting),
+);
+
+/**
+ * Telas no rodízio: sem filas no escopo (ex.: empresa sem fila) a de filas sai; a de
+ * desconectados só entra quando há alguém fora do ar.
+ */
 const available = computed<TvScreen[]>(() =>
-  store.queues.length > 0 || !store.active?.hasSnapshot ? [...TV_SCREENS] : ['calls'],
+  TV_SCREENS.filter((s) => {
+    if (s === 'queues') return store.queues.length > 0 || !store.active?.hasSnapshot;
+    if (s === 'down') return down.value.length > 0;
+    return true;
+  }),
 );
 watch(available, (list) => {
   if (!list.includes(screen.value)) screen.value = list[0]!;
@@ -115,7 +135,6 @@ onUnmounted(() => {
 });
 
 // ---------------------------------------------------------------- cabeçalho
-const now = useNow();
 const clock = computed(() =>
   new Date(now.value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
 );
@@ -210,6 +229,7 @@ const totals = computed(() => ({
       :queues="store.queues"
       :loading="!store.active?.hasSnapshot"
     />
+    <TvDown v-else-if="screen === 'down'" :items="down" />
     <TvCalls
       v-else
       :calls="store.calls"

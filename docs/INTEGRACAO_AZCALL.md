@@ -1,7 +1,7 @@
 # Integração AstCall × AzCall (modo integrado)
 
 > Contrato entre o AstCall (backend Node + Web Component) e o AzCall (PHP).
-> Versão do contrato: **1.3** · Última revisão: 2026-10-17
+> Versão do contrato: **1.4** · Última revisão: 2026-10-17
 
 O AzCall embute o painel AstCall numa página própria, autentica o usuário (sem segundo login)
 e emite o token. O AstCall só **valida** o token e aplica permissões e escopo que vêm nele.
@@ -61,6 +61,7 @@ define `--ast-card-bg` (o tema não expõe a cor do card na raiz) — ver `views
 | `perms`     | `{ "<servidor>": Permissão[] }`                               | `view`, `hangup`, `transfer`, `originate`, `spy`, `queue`, `queue_manage` |
 | `scope`     | `{ "<servidor>": { endpoints: string[], queues: string[] } }` | **opcional**; ausente = vê tudo naquele servidor (super_admin)            |
 | `extension` | string                                                        | **opcional**; ramal do usuário (sugestão no diálogo de escuta)            |
+| `trunks`    | `{ "<servidor>": string[] }`                                  | **opcional**; endpoints que são troncos (destaque nos alertas de queda)   |
 
 **Mapeamento de permissões** (AzCall → AstCall), em `AstCallTokenService::PERMISSION_MAP`:
 `astcall.view → view`, `astcall.hangup → hangup`, `astcall.transfer → transfer`,
@@ -234,9 +235,10 @@ O navegador revalida o `ast-monitor.js` (ETag) a cada carga da página.
 
 ## Histórico de revisões
 
-| Data       | Autor       | O que mudou                                                                                  |
-| ---------- | ----------- | -------------------------------------------------------------------------------------------- |
-| 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório                                              |
-| 2026-10-17 | Claude Code | Versão 1.1: atributos opcionais `mode` e `rotate` (modo TV), rota `/astcall/tv`              |
-| 2026-10-17 | Claude Code | Versão 1.2: permissão `queue_manage` (migration 162); permissões desconhecidas são ignoradas |
-| 2026-10-17 | Claude Code | Versão 1.3: widgets `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` e atributo `readonly`    |
+| Data       | Autor       | O que mudou                                                                                                       |
+| ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| 2026-10-17 | Claude Code | Versão 1 do contrato; instalação no laboratório                                                                   |
+| 2026-10-17 | Claude Code | Versão 1.1: atributos opcionais `mode` e `rotate` (modo TV), rota `/astcall/tv`                                   |
+| 2026-10-17 | Claude Code | Versão 1.2: permissão `queue_manage` (migration 162); permissões desconhecidas são ignoradas                      |
+| 2026-10-17 | Claude Code | Versão 1.3: widgets `<ast-filas>`, `<ast-ramais>`, `<ast-chamadas>` e atributo `readonly`                         |
+| 2026-11-03 | Claude Code | Versão 1.4: claim opcional `trunks` (alertas de desconexão); super_admin recebe todos, os demais só os da empresa |

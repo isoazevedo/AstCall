@@ -283,6 +283,62 @@ function freeEndpoint(): string | null {
   return null;
 }
 
+/** Endereço do telefone registrado no ramal (fixo por ramal). */
+function contactUri(e: string): string {
+  const n = e === TRUNK ? 250 : (Number(e) % 249) + 1;
+  return `sip:${e}@198.51.100.${n}:5060`;
+}
+
+// ------------------------------------------------------------------ quedas (demonstração)
+
+/** Ramais derrubados pela simulação (voltam sozinhos depois de alguns minutos). */
+const dropped = new Set<string>();
+
+/** Um telefone que estava online perde a conexão (sem registro) por 2 a 5 minutos. */
+function dropPhone(): void {
+  if (dropped.size >= 2) return;
+  const candidates = [...allEndpoints()].filter(
+    (e) => e !== TRUNK && !offline.has(e) && !busy.has(e),
+  );
+  const e = candidates[Math.floor(Math.random() * candidates.length)];
+  if (!e) return;
+  offline.add(e);
+  dropped.add(e);
+  emit({
+    Event: 'ContactStatus',
+    EndpointName: e,
+    AOR: e,
+    URI: contactUri(e),
+    ContactStatus: 'Removed',
+  });
+  device(e, 'UNAVAILABLE');
+  for (const key of members.keys()) if (key.endsWith(`|${e}`)) memberStatus(key.split('|')[0]!, e);
+  later(120_000 + Math.random() * 180_000, () => {
+    offline.delete(e);
+    dropped.delete(e);
+    emit({
+      Event: 'ContactStatus',
+      EndpointName: e,
+      AOR: e,
+      URI: contactUri(e),
+      ContactStatus: 'Reachable',
+      UserAgent: 'SimPhone/1.0',
+      RoundtripUsec: '15000',
+    });
+    device(e, 'NOT_INUSE');
+    for (const key of members.keys())
+      if (key.endsWith(`|${e}`)) memberStatus(key.split('|')[0]!, e);
+  });
+}
+
+/** Agenda quedas: a primeira logo no início, depois a cada 1,5 a 3 minutos. */
+function scheduleDrops(first: boolean): void {
+  later(first ? 40_000 : 90_000 + Math.random() * 90_000, () => {
+    dropPhone();
+    scheduleDrops(false);
+  });
+}
+
 /** Ramais do PBX (e o tronco, no perfil de demonstração). */
 function* allEndpoints(): Generator<string> {
   for (let i = 0; i < opts.endpoints; i++) yield ext(i);
@@ -469,6 +525,7 @@ let genTimer: NodeJS.Timeout | undefined;
 
 function startGenerator(): void {
   running = true;
+  if (opts.demo) scheduleDrops(true);
   // Taxa de novas chamadas para manter ~`calls` simultâneas: calls / duração média (s)
   const perSecond = opts.calls / (opts.talkSeconds + 4);
   let credit = 0;
@@ -535,10 +592,10 @@ function onAction(a: AmiMessage, socket: Socket & { authed?: boolean }): void {
         id,
         [...allEndpoints()]
           .filter((e) => !offline.has(e))
-          .map((e, i) => ({
+          .map((e) => ({
             Event: 'ContactList',
             Endpoint: e,
-            Uri: `sip:${e}@198.51.100.${(i % 250) + 1}:5060`,
+            Uri: contactUri(e),
             Status: 'Reachable',
             UserAgent: e === TRUNK ? 'Operadora SIP' : 'SimPhone/1.0',
             RoundtripUsec: '15000',

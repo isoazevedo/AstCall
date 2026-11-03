@@ -41,12 +41,13 @@ export const useMonitorStore = defineStore('monitor', () => {
   const serverList = computed(() => Object.values(servers));
   const active = computed(() => (activeServerId.value ? servers[activeServerId.value] : undefined));
 
-  /** Ramais do servidor ativo, prontos para exibir e ordenados. */
-  const endpoints = computed(() =>
-    Object.values(active.value?.endpoints ?? {})
-      .map(endpointView)
-      .sort((a, b) => compareEndpointIds(a.id, b.id)),
-  );
+  /** Ramais e troncos do servidor ativo, prontos para exibir e ordenados. */
+  const endpoints = computed(() => {
+    const trunks = new Set(active.value?.trunks ?? []);
+    return Object.values(active.value?.endpoints ?? {})
+      .map((ep) => endpointView(ep, trunks.has(ep.id)))
+      .sort((a, b) => compareEndpointIds(a.id, b.id));
+  });
 
   /** Chamadas do servidor ativo, das mais antigas para as mais novas. */
   const calls = computed(() => {
@@ -159,6 +160,7 @@ export const useMonitorStore = defineStore('monitor', () => {
           else {
             existing.status = info.status;
             existing.permissions = info.permissions ?? [];
+            existing.trunks = info.trunks ?? [];
           }
         }
         for (const id of Object.keys(servers)) if (!visible.has(id)) delete servers[id];

@@ -20,7 +20,7 @@ import type { AuthConfig } from '../../src/config/index.js';
 import { applyEvent } from '../../src/handlers/index.js';
 import { createLogger } from '../../src/logger.js';
 import { ServerStore } from '../../src/state/ServerStore.js';
-import { compact, Hub, ServerFeed, type HubOptions } from '../../src/ws/index.js';
+import { compact, Hub, ServerFeed, trunksFor, type HubOptions } from '../../src/ws/index.js';
 
 const log = createLogger('silent', false);
 
@@ -423,5 +423,25 @@ describe('ações pelo WebSocket', () => {
     const c = await authedClient();
     c.send({ t: 'action', reqId: 'r1', server: 'pbx1', name: 'hangup', params: {} });
     expect(await c.next('action_result')).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+});
+
+describe('troncos informados ao painel', () => {
+  const feed = { serverId: 'pbx1', trunks: ['operadora', 'Avoip'] };
+
+  it('soma os do servers.json com os do token', () => {
+    expect(trunksFor({ trunks: { pbx1: ['Vivo'], pbx2: ['Outro'] } }, feed)).toEqual([
+      'Avoip',
+      'Vivo',
+      'operadora',
+    ]);
+  });
+
+  it('com escopo de empresa, só os troncos que a empresa enxerga', () => {
+    const claims = {
+      trunks: { pbx1: ['Vivo'] },
+      scope: { pbx1: { endpoints: ['9001', 'Avoip'], queues: [] } },
+    };
+    expect(trunksFor(claims, feed)).toEqual(['Avoip']);
   });
 });

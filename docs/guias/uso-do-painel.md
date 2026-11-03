@@ -124,6 +124,35 @@ reforçar o atendimento num pico. Escolha o ramal, a penalidade e se ele já ent
 O ramal entra como **dinâmico**: continua na fila (inclusive depois de reiniciar o PBX) até ser
 removido pelo painel.
 
+## Alertas de desconexão
+
+Avisam quando um ramal ou tronco **que estava online** fica fora do ar — por exemplo, um
+telefone que perdeu a rede ou a operadora que caiu.
+
+![Seção Desconectados](../img/desconectados.png)
+
+- Clique no **sino** ao lado do selo de conexão e marque **Ativar alertas de desconexão**.
+- Quando alguém cai, aparece a seção **Desconectados** no topo da Visão geral e da aba Ramais,
+  com há quanto tempo está fora e quantos alertas já tocaram. O sino mostra quantos estão em
+  alerta. Quando volta ao ar, sai da lista sozinho.
+- **Troncos** aparecem primeiro e em vermelho: sem eles, ninguém liga para fora.
+- Ramais que **já estavam offline** quando o painel começou a monitorar (ex.: aparelho ainda não
+  instalado) não geram alerta; ficam numa linha recolhida.
+
+![Configuração dos alertas](../img/alertas.png)
+
+| Opção                        | O que faz                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| **Tocar som**                | bipe a cada alerta (três bipes quando é um tronco); **testar** toca um bipe    |
+| **Notificação do navegador** | aviso do sistema mesmo com a aba em segundo plano (o navegador pede permissão) |
+| **Enquanto continuar fora**  | repete o alerta a cada 1, 2, 5, 10 ou 15 minutos (ou não repete)               |
+| **Tolerância**               | quedas mais curtas que isso não avisam (padrão 30 s), evitando alarme falso    |
+| **Vigiar**                   | todos os ramais e troncos, ou só os escolhidos                                 |
+
+As configurações valem para o navegador onde foram feitas. Os alertas só tocam enquanto o
+painel estiver aberto. No **modo TV**, a tela **Desconectados** entra no rodízio sempre que há
+alguém fora do ar.
+
 ## Modo TV
 
 Para deixar numa TV da operação: tela escura, letras grandes e nenhuma ação.
@@ -135,7 +164,8 @@ Para deixar numa TV da operação: tela escura, letras grandes e nenhuma ação.
 | -------------------------------------- | -------------------------------------------- |
 | ![Modo TV, filas](../img/tv-filas.png) | ![Modo TV, chamadas](../img/tv-chamadas.png) |
 
-- **Rodízio:** alterna entre Filas e Chamadas a cada 15 segundos. O botão **Rodízio
+- **Rodízio:** alterna entre Filas e Chamadas (e Desconectados, quando há alguém fora do ar) a
+  cada 15 segundos. O botão **Rodízio
   ligado/desligado** fixa a tela atual; a escolha fica salva no navegador da TV.
 - **Tela cheia:** botão **Tela cheia** (o navegador pede um clique).
 - Os botões somem quando o mouse fica parado e voltam ao mexer.

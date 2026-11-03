@@ -11,7 +11,10 @@ const { can, open } = useWidget();
 <template>
   <article class="ep" :class="`ep-${endpoint.tone}`">
     <div class="ep-top">
-      <strong class="ep-id">{{ endpoint.id }}</strong>
+      <strong class="ep-id">
+        {{ endpoint.id }}
+        <small v-if="endpoint.trunk" class="ep-trunk">tronco</small>
+      </strong>
       <span
         class="ast-badge"
         :class="[`tone-${endpoint.tone}`, { 'ast-pulse': endpoint.tone === 'warning' }]"
@@ -38,6 +41,14 @@ const { can, open } = useWidget();
 </template>
 
 <style>
+.ep-trunk {
+  margin-left: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ast-text-muted);
+}
 .ep {
   position: relative;
   padding: 0.85rem 1rem 0.85rem 1.15rem;

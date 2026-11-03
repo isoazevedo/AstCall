@@ -22,7 +22,7 @@ export const HANDLERS: Readonly<Record<string, Handler>> = {
 export function applyEvent(store: ServerStore, msg: AmiMessage, ts = Date.now()): DeltaOp[] {
   const handler = msg.event ? HANDLERS[msg.event.toLowerCase()] : undefined;
   handler?.(store, msg, ts);
-  return store.flush();
+  return store.flush(ts);
 }
 
 export type { Handler } from './util.js';

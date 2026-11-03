@@ -20,4 +20,9 @@ export interface ServerInfo {
    * mostrar só os botões permitidos; o backend valida de novo a cada ação.
    */
   permissions: Permission[];
+  /**
+   * Endpoints deste servidor que são troncos (operadora), não ramais. Vem do servers.json
+   * (standalone) e/ou do token (AzCall). Usado para destacar a queda de um tronco.
+   */
+  trunks?: string[];
 }

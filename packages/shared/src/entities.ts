@@ -38,7 +38,15 @@ export interface Endpoint {
   contacts: Contact[];
   /** Canais ativos deste endpoint (calculado). */
   activeChannels: number;
+  /**
+   * Desde quando está offline (ms), quando o backend viu o endpoint cair (estava online e
+   * ficou indisponível). null = online, ou offline desde antes do monitoramento começar.
+   */
+  offlineSince: number | null;
 }
+
+/** Estados de dispositivo em que o endpoint está fora do ar (sem telefone registrado). */
+export const OFFLINE_DEVICE_STATES: readonly DeviceState[] = ['UNAVAILABLE', 'INVALID', 'UNKNOWN'];
 
 /** Canal ativo. Chave: Uniqueid. */
 export interface Channel {

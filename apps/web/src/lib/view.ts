@@ -30,6 +30,10 @@ export interface EndpointView {
   /** IP:porta do contato registrado, quando houver. */
   address: string | null;
   activeChannels: number;
+  /** É um tronco (operadora), não um ramal. */
+  trunk: boolean;
+  /** Desde quando está fora do ar (ms), se o backend viu a queda; senão null. */
+  offlineSince: number | null;
 }
 
 const DEVICE: Record<DeviceState, { label: string; tone: Tone; group: EndpointGroup }> = {
@@ -44,7 +48,7 @@ const DEVICE: Record<DeviceState, { label: string; tone: Tone; group: EndpointGr
   UNKNOWN: { label: 'Desconhecido', tone: 'secondary', group: 'offline' },
 };
 
-export function endpointView(ep: Endpoint): EndpointView {
+export function endpointView(ep: Endpoint, trunk = false): EndpointView {
   const d = DEVICE[ep.deviceState] ?? DEVICE.UNKNOWN;
   const contact = ep.contacts[0];
   return {
@@ -55,6 +59,8 @@ export function endpointView(ep: Endpoint): EndpointView {
     userAgent: contact?.userAgent ?? null,
     address: contact ? addressFromUri(contact.uri) : null,
     activeChannels: ep.activeChannels,
+    trunk,
+    offlineSince: ep.offlineSince ?? null,
   };
 }
 

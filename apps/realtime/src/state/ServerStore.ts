@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { OFFLINE_DEVICE_STATES } from '@astcall/shared';
 import type {
   Bridge,
   Call,
@@ -44,6 +45,13 @@ export class ServerStore extends EventEmitter<StoreEvents> {
   private readonly byEndpoint = new Map<string, Set<string>>();
   private readonly hungUp = new Set<string>();
   private readonly counted = new Set<string>();
+  /**
+   * Quedas de endpoints: quem já foi visto online e, para quem caiu, desde quando. Sobrevive
+   * ao clear() (ressincronização após reconectar ao AMI): um tronco fora do ar há 2 h continua
+   * "offline há 2 h", e não "desde agora".
+   */
+  private readonly seenOnline = new Set<string>();
+  private readonly offlineMemo = new Map<string, number>();
 
   // O que mudou desde o último flush()
   private readonly dirty = {
@@ -179,7 +187,13 @@ export class ServerStore extends EventEmitter<StoreEvents> {
   ensureEndpoint(id: string): Endpoint {
     let ep = this.endpoints.get(id);
     if (!ep) {
-      ep = { id, deviceState: 'UNKNOWN', contacts: [], activeChannels: 0 };
+      ep = {
+        id,
+        deviceState: 'UNKNOWN',
+        contacts: [],
+        activeChannels: 0,
+        offlineSince: this.offlineMemo.get(id) ?? null,
+      };
       this.endpoints.set(id, ep);
     }
     this.dirty.endpoint.add(id);
@@ -355,11 +369,13 @@ export class ServerStore extends EventEmitter<StoreEvents> {
    * Recalcula os dados derivados do que mudou e devolve (e emite) os deltas.
    * Deve ser chamado ao final de cada evento AMI.
    */
-  flush(): DeltaOp[] {
+  flush(ts = Date.now()): DeltaOp[] {
     for (const linkedid of this.dirty.call) this.recomputeCall(linkedid);
     for (const id of this.dirty.endpoint) {
       const ep = this.endpoints.get(id);
-      if (ep) ep.activeChannels = this.byEndpoint.get(id)?.size ?? 0;
+      if (!ep) continue;
+      ep.activeChannels = this.byEndpoint.get(id)?.size ?? 0;
+      this.trackOffline(ep, ts);
     }
 
     const ops: DeltaOp[] = [];
@@ -405,6 +421,25 @@ export class ServerStore extends EventEmitter<StoreEvents> {
   }
 
   // ---------------------------------------------------------------- internos
+
+  /**
+   * Marca desde quando o endpoint está fora do ar. Só conta a queda que o backend viu
+   * acontecer (estava online e ficou indisponível): um aparelho que nunca registrou não vira
+   * "queda". Voltou ao ar: limpa.
+   */
+  private trackOffline(ep: Endpoint, ts: number): void {
+    const offline = OFFLINE_DEVICE_STATES.includes(ep.deviceState);
+    if (!offline) {
+      this.seenOnline.add(ep.id);
+      this.offlineMemo.delete(ep.id);
+      ep.offlineSince = null;
+      return;
+    }
+    if (ep.offlineSince === null && this.seenOnline.has(ep.id)) {
+      ep.offlineSince = ts;
+      this.offlineMemo.set(ep.id, ep.offlineSince);
+    }
+  }
 
   /** Marca o canal e tudo o que depende dele (chamada e endpoint) para o próximo flush. */
   private touchChannel(ch: Channel): void {

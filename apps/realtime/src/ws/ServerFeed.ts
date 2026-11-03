@@ -49,6 +49,8 @@ export class ServerFeed {
   private timer: NodeJS.Timeout | undefined;
   private seq = 0;
   private lastStatus: ServerConnectionStatus;
+  /** Troncos deste servidor informados no servers.json (somados aos do token). */
+  trunks: string[] = [];
 
   constructor(
     readonly serverId: ServerId,

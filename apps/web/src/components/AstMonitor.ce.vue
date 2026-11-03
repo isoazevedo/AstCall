@@ -29,6 +29,9 @@ import ActionDialog from './ActionDialog.ce.vue';
 import QueuePanel from './QueuePanel.ce.vue';
 import ToastHost from './ToastHost.ce.vue';
 import TvBoard from './TvBoard.ce.vue';
+import DisconnectBell from './DisconnectBell.ce.vue';
+import DisconnectPanel from './DisconnectPanel.ce.vue';
+import { useDisconnectAlerts } from '../composables/useDisconnectAlerts';
 
 /**
  * Atributos da tag:
@@ -54,7 +57,11 @@ const store = useMonitorStore();
 
 // Conexão compartilhada com os outros elementos da página. Sessão expirada: avisa a página
 // (a SPA volta ao login, o AzCall redireciona).
-useWidgetRoot(props, () => emit('auth-required'));
+const owner = useWidgetRoot(props, () => emit('auth-required'));
+
+/** Alertas de desconexão (sino no cabeçalho + seção "Desconectados"). */
+const alerts = useDisconnectAlerts(owner);
+const showDown = computed(() => alerts.prefs.value.enabled && alerts.alerting.value.length > 0);
 
 /** Selo de conexão no canto superior. */
 const badge = computed(() => {
@@ -110,10 +117,13 @@ const stats = computed(() => {
           <span v-if="store.user"> · {{ store.user.name || store.user.sub }}</span>
         </p>
       </div>
-      <span class="ast-badge" :class="`tone-${badge.tone}`" role="status">
-        <component :is="badge.icon" :size="14" aria-hidden="true" />
-        {{ badge.text }}
-      </span>
+      <div class="ast-header-right">
+        <DisconnectBell :alerts="alerts" />
+        <span class="ast-badge" :class="`tone-${badge.tone}`" role="status">
+          <component :is="badge.icon" :size="14" aria-hidden="true" />
+          {{ badge.text }}
+        </span>
+      </div>
     </header>
 
     <!-- Abas de servidor: só aparecem se o usuário vê mais de um -->
@@ -175,6 +185,7 @@ const stats = computed(() => {
     </nav>
 
     <!-- v-if monta só o que a aba ativa mostra (o resto sai da página). -->
+    <DisconnectPanel v-if="showDown && shows('endpoints')" :alerts="alerts" />
     <CallList v-if="shows('calls')" :calls="store.calls" :loading="!store.active?.hasSnapshot" />
     <EndpointGrid
       v-if="shows('endpoints')"

@@ -58,6 +58,7 @@ const claimsSchema = z.object({
     )
     .optional(),
   extension: z.string().max(64).optional(),
+  trunks: z.record(z.string().min(1), z.array(z.string().max(64)).max(5000)).optional(),
 });
 
 function readKey(file: string, what: string): string {

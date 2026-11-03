@@ -209,6 +209,25 @@ const SHOTS: Shot[] = [
       input.dispatchEvent(new Event('input')); await wait(200);`,
   },
   {
+    file: 'desconectados.png',
+    path: '/',
+    theme: 'dark',
+    desc: 'alertas de desconexão — seção Desconectados',
+    storage: { 'astcall.alertas': JSON.stringify({ enabled: true }) },
+    // o PBX de demonstração derruba um telefone ~40 s após iniciar (+30 s de tolerância)
+    prepare: `${MONITOR_READY}
+      await until(() => root().querySelector('.down-panel'), 240000); await wait(500);`,
+  },
+  {
+    file: 'alertas.png',
+    path: '/',
+    theme: 'dark',
+    desc: 'configuração dos alertas de desconexão',
+    storage: { 'astcall.alertas': JSON.stringify({ enabled: true }) },
+    prepare: `${MONITOR_READY}
+      root().querySelector('.bell').click(); await wait(400);`,
+  },
+  {
     file: 'filas.png',
     path: '/',
     theme: 'dark',

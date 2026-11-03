@@ -5,13 +5,17 @@ import type { QueueView } from './view';
  * Fica fora dos componentes para ser testada sem navegador.
  */
 
-/** Telas do modo TV, na ordem do rodízio. */
-export type TvScreen = 'queues' | 'calls';
-export const TV_SCREENS: readonly TvScreen[] = ['queues', 'calls'];
+/**
+ * Telas do modo TV, na ordem do rodízio. "down" (Desconectados) só entra no rodízio quando há
+ * ramal ou tronco fora do ar.
+ */
+export type TvScreen = 'queues' | 'calls' | 'down';
+export const TV_SCREENS: readonly TvScreen[] = ['queues', 'calls', 'down'];
 
 export const TV_SCREEN_LABEL: Record<TvScreen, string> = {
   queues: 'Filas',
   calls: 'Chamadas',
+  down: 'Desconectados',
 };
 
 /** Intervalo padrão do rodízio (segundos) e limites aceitos no atributo `rotate`. */

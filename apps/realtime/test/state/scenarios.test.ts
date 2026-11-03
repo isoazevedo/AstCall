@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { applyEvent } from '../../src/handlers/index.js';
+import { ServerStore } from '../../src/state/ServerStore.js';
 import { at, linksByName, loadFixture, nth, replay, uid } from '../helpers/replay.js';
 
 /**
@@ -201,6 +203,51 @@ describe('cenário 6: registro de ramal', () => {
     expect(ep.deviceState).toBe('NOT_INUSE');
     expect(ep.contacts).toHaveLength(1);
     expect(ep.contacts[0]).toMatchObject({ status: 'NonQualified', rttMs: null });
+  });
+});
+
+describe('quedas de ramal (offlineSince)', () => {
+  const events = loadFixture('06-registro-ramal.jsonl');
+  const T0 = events[0]!.t - 60_000;
+
+  /** Store em que o 9001 já estava online antes da gravação começar. */
+  function online9001(): ServerStore {
+    const store = new ServerStore();
+    applyEvent(store, { event: 'DeviceStateChange', device: 'PJSIP/9001', state: 'NOT_INUSE' }, T0);
+    return store;
+  }
+
+  it('marca o horário da queda quando um ramal online fica indisponível', () => {
+    const store = online9001();
+    let drop = 0;
+    for (const ev of events) {
+      applyEvent(store, ev.msg, ev.t);
+      if (!drop && store.endpoints.get('9001')!.deviceState === 'UNAVAILABLE') drop = ev.t;
+    }
+    // ao final da gravação ele voltou: limpo de novo
+    expect(store.endpoints.get('9001')!.offlineSince).toBeNull();
+    // no momento da queda, o horário é o do evento (não o relógio da máquina)
+    const store2 = online9001();
+    replay(events, { store: store2, until: at('ContactStatus') });
+    expect(store2.endpoints.get('9001')!.offlineSince).toBe(drop);
+  });
+
+  it('aparelho que nunca esteve online não conta como queda', () => {
+    const { store } = replay(events, { until: at('ContactStatus') });
+    expect(store.endpoints.get('9001')).toMatchObject({
+      deviceState: 'UNAVAILABLE',
+      offlineSince: null,
+    });
+  });
+
+  it('a ressincronização (clear + listas) preserva o horário da queda', () => {
+    const store = online9001();
+    replay(events, { store, until: at('ContactStatus') });
+    const since = store.endpoints.get('9001')!.offlineSince;
+    expect(since).not.toBeNull();
+    store.clear();
+    applyEvent(store, { event: 'EndpointList', objectname: '9001', devicestate: 'Unavailable' });
+    expect(store.endpoints.get('9001')!.offlineSince).toBe(since);
   });
 });
 
