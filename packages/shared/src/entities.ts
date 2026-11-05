@@ -43,6 +43,37 @@ export interface Endpoint {
    * ficou indisponível). null = online, ou offline desde antes do monitoramento começar.
    */
   offlineSince: number | null;
+  /** Qualidade de voz média das conversas em curso deste endpoint (null = sem medição agora). */
+  quality: EndpointQuality | null;
+}
+
+/**
+ * Qualidade de voz de um canal, medida pelo Asterisk a partir do RTCP
+ * (`CHANNEL(rtcp,all)`). A nota é o MES — Media Experience Score, de 0 a 100 — no pior dos
+ * dois sentidos da conversa.
+ */
+export interface VoiceQuality {
+  /** Nota de 0 a 100 (80+ boa, 60–79 regular, abaixo de 60 ruim). */
+  mes: number;
+  /** Maior variação de atraso (jitter) entre os dois sentidos, em ms. */
+  jitterMs: number;
+  /** Atraso de ida e volta, em ms (null antes do primeiro relatório RTCP). */
+  rttMs: number | null;
+  /** Maior perda de pacotes entre os dois sentidos, em % (acumulada na chamada). */
+  lossPct: number;
+  /** Quando foi medida (ms). */
+  updatedAt: number;
+}
+
+/** Qualidade de voz de um endpoint (ex.: um tronco): média das conversas em curso. */
+export interface EndpointQuality {
+  /** Média das notas MES dos canais em conversa. */
+  mes: number;
+  /** Quantos canais entraram na média. */
+  channels: number;
+  /** Desde quando a média está abaixo do limite de alerta (ms); null = acima. */
+  degradedSince: number | null;
+  updatedAt: number;
 }
 
 /** Estados de dispositivo em que o endpoint está fora do ar (sem telefone registrado). */
@@ -86,6 +117,8 @@ export interface Channel {
   /** Epoch em ms. */
   createdAt: number;
   answeredAt: number | null;
+  /** Qualidade de voz medida (só canais PJSIP em conversa, com áudio passando pelo Asterisk). */
+  quality: VoiceQuality | null;
 }
 
 /** Bridge (mistura de áudio) com N canais. Chave: BridgeUniqueid. */

@@ -8,12 +8,14 @@ import type {
   Contact,
   DeltaOp,
   Endpoint,
+  EndpointQuality,
   EntityMap,
   EntityName,
   Queue,
   QueueEntry,
   QueueForecast,
   QueueMember,
+  VoiceQuality,
   ServerSnapshot,
 } from '@astcall/shared';
 
@@ -196,6 +198,7 @@ export class ServerStore extends EventEmitter<StoreEvents> {
         contacts: [],
         activeChannels: 0,
         offlineSince: this.offlineMemo.get(id) ?? null,
+        quality: null,
       };
       this.endpoints.set(id, ep);
     }
@@ -249,6 +252,22 @@ export class ServerStore extends EventEmitter<StoreEvents> {
   }
 
   /** Grava (ou apaga, com null) a previsão de uma fila. Vira delta só se algo mudou. */
+  /** Qualidade de voz medida de um canal (ignora canais que já saíram). */
+  setChannelQuality(uniqueid: string, quality: VoiceQuality | null): void {
+    const ch = this.channels.get(uniqueid);
+    if (!ch) return;
+    ch.quality = quality;
+    this.dirty.channel.add(uniqueid);
+  }
+
+  /** Qualidade de voz média de um endpoint (ignora endpoints desconhecidos). */
+  setEndpointQuality(id: string, quality: EndpointQuality | null): void {
+    const ep = this.endpoints.get(id);
+    if (!ep) return;
+    ep.quality = quality;
+    this.dirty.endpoint.add(id);
+  }
+
   setForecast(queue: string, forecast: QueueForecast | null): void {
     if (forecast) this.queueForecasts.set(queue, forecast);
     else this.queueForecasts.delete(queue);
@@ -558,6 +577,7 @@ function newChannel(uniqueid: string, name: string, linkedid: string, ts: number
     inQueue: false,
     createdAt: ts,
     answeredAt: null,
+    quality: null,
   };
 }
 

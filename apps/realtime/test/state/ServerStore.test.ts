@@ -127,6 +127,7 @@ describe('ServerStore + handlers', () => {
       deviceState: 'NOT_INUSE',
       activeChannels: 0,
       offlineSince: null,
+      quality: null,
       contacts: [
         {
           uri: 'sip:9001@192.0.2.1:5060',

@@ -5,6 +5,7 @@ import { AmiConnection, AmiRecorder } from './ami/index.js';
 import { AuditLog } from './audit/AuditLog.js';
 import { QueueForecaster } from './forecast/QueueForecaster.js';
 import { HistoryRecorder } from './history/HistoryRecorder.js';
+import { QualityMonitor } from './quality/QualityMonitor.js';
 import { HistoryStore } from './history/HistoryStore.js';
 import {
   adminRoutes,
@@ -161,6 +162,15 @@ async function main(): Promise<void> {
         setInterval(() => {
           if (!sync.syncing && conn.status === 'ready') forecaster.update(store);
         }, config.forecast.intervalMs),
+      );
+    }
+    // Qualidade de voz (RTCP): Getvar CHANNEL(rtcp,all) nos canais em conversa
+    if (config.quality.intervalMs > 0) {
+      const quality = new QualityMonitor({ degradedBelow: config.quality.degradedBelow });
+      forecastTimers.push(
+        setInterval(() => {
+          if (!sync.syncing && conn.status === 'ready') void quality.update(store, conn);
+        }, config.quality.intervalMs),
       );
     }
     conn.start();

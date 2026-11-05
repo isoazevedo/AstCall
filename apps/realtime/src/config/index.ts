@@ -35,6 +35,8 @@ export interface AppConfig {
     defaultSlSeconds: number;
     defaultAhtSeconds: number;
   };
+  /** Qualidade de voz: intervalo (ms; 0 = desligado) e limite do alerta de endpoint. */
+  quality: { intervalMs: number; degradedBelow: number };
   /** Histórico (máquina do tempo); undefined = desligado. */
   history: { dbFile: string; days: number; checkpointMs: number } | undefined;
   /** Pasta do Web Component compilado. */
@@ -149,6 +151,7 @@ export function buildConfig(
       defaultSlSeconds: env.SL_DEFAULT_SECONDS,
       defaultAhtSeconds: env.DEFAULT_AHT_SECONDS,
     },
+    quality: { intervalMs: env.QUALITY_INTERVAL_MS, degradedBelow: env.QUALITY_DEGRADED_BELOW },
     history: env.HISTORY_ENABLED
       ? {
           dbFile: resolvePath(rootDir, env.HISTORY_DB_FILE),

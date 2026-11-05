@@ -30,6 +30,9 @@ export const envSchema = z.object({
   SL_TARGET_PERCENT: z.coerce.number().int().min(1).max(100).default(80),
   SL_DEFAULT_SECONDS: z.coerce.number().int().min(1).max(600).default(20),
   DEFAULT_AHT_SECONDS: z.coerce.number().int().min(10).max(3600).default(180),
+  /** Qualidade de voz (RTCP): intervalo entre medições (ms; 0 desliga) e limite do alerta. */
+  QUALITY_INTERVAL_MS: z.coerce.number().int().min(0).default(10_000),
+  QUALITY_DEGRADED_BELOW: z.coerce.number().min(1).max(100).default(70),
   /** Histórico (máquina do tempo): liga/desliga, arquivo, dias guardados e intervalo das fotos. */
   HISTORY_ENABLED: z.stringbool().default(true),
   HISTORY_DB_FILE: z.string().min(1).default('data/history.sqlite'),

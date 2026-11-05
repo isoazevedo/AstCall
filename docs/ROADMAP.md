@@ -675,6 +675,17 @@ guardar 7 dias (`HISTORY_DAYS`); ligado por padrão (`HISTORY_ENABLED`).
 qualidade (MOS) a cada chamada e avisar degradação de tronco antes da queda. Hoje o `eventfilter`
 descarta esses eventos: exige filtro seletivo e cuidado com o volume.
 
+Decisões (2026-11-05): medir com `Getvar CHANNEL(rtcp,all)` (o usuário AMI já tem a permissão,
+sem mudar o `manager.conf`; o Asterisk 20 já calcula a nota MES) em vez dos eventos RTCP; a cada
+10 s; faixas: boa ≥ 80, regular 60–79, ruim < 60; tronco degradado com média < 70 por 2 min.
+
+- [x] Fase 1 — sondagem no laboratório (só leitura): `Getvar` liberado para o `astcall`;
+      `CHANNEL(rtcp,all)` devolve MES, jitter, RTT e perdas (ligação real: MES 86–88)
+- [x] Fase 2 — backend: `QualityMonitor` (Getvar por canal PJSIP em conversa), `Channel.quality`
+      e `Endpoint.quality` (média e `degradedSince`); `QUALITY_INTERVAL_MS`, `QUALITY_DEGRADED_BELOW`
+- [ ] Fase 3 — tela: selo de qualidade nas chamadas, aviso de tronco degradado, modo TV
+- [ ] Fase 4 — simulador com notas fictícias (tronco que piora), guias e prints
+
 **Esforço estimado:** M
 **Impacto esperado:** Médio
 
@@ -777,3 +788,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-11-03 | Claude Code | Item 27, fase 2: consulta do histórico pelo WebSocket, permissão `history` e contrato 1.5 (AzCall PR #78)                                                                                                  |
 | 2026-11-03 | Claude Code | Item 27, fase 3: barra do histórico no painel (horário congelado, sem ações; alertas seguem ao vivo)                                                                                                       |
 | 2026-11-05 | Claude Code | Item 27 concluído (fase 4): reprodução 1x/10x/60x, lacunas de gravação, Node 22 ao lado no laboratório e guias                                                                                             |
+| 2026-11-05 | Claude Code | Item 28, fases 1 e 2: sondagem do RTCP no laboratório e medição da qualidade de voz no backend                                                                                                             |
