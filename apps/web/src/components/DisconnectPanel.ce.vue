@@ -11,7 +11,7 @@ import { useNow } from '../composables/useNow';
 import { sinceText } from '../lib/disconnects';
 
 const props = defineProps<{ alerts: DisconnectAlerts }>();
-const now = useNow();
+const now = useNow({ live: true });
 const showOld = ref(false);
 
 const alerting = computed(() => props.alerts.alerting.value);

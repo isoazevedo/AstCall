@@ -7,6 +7,7 @@ import type {
   Permission,
   ServerMessage,
 } from '@astcall/shared';
+import { frozenAt } from '../composables/useNow';
 import { MonitorConnection, type ConnectionState } from '../lib/MonitorConnection';
 import { applyDelta, applySnapshot, createServerState, type ServerState } from '../lib/serverState';
 import { callView, compareEndpointIds, endpointView, queueView } from '../lib/view';
@@ -37,21 +38,45 @@ export const useMonitorStore = defineStore('monitor', () => {
   /** Diálogo de ação aberto (desligar, transferir, ligar, pausar...) ou null. */
   const dialog = ref<(ActionDialog & { owner: string }) | null>(null);
 
+  /**
+   * Histórico (máquina do tempo): com `at` definido, a tela mostra o estado daquele horário
+   * (`state`) em vez do ao vivo. O ao vivo continua chegando e sendo aplicado por baixo.
+   */
+  const history = reactive({
+    at: null as number | null,
+    state: null as ServerState | null,
+    /** Horário mais antigo disponível (vem na resposta do backend). */
+    from: null as number | null,
+    loading: false,
+    /** Motivo de não ter o estado do horário (sem dados, sem conexão...), ou null. */
+    error: null as string | null,
+  });
+  /** Só a resposta do pedido mais recente vale (o usuário arrasta a barra rápido). */
+  let historySeq = 0;
+
   // ---------------------------------------------------------------- derivados
   const serverList = computed(() => Object.values(servers));
   const active = computed(() => (activeServerId.value ? servers[activeServerId.value] : undefined));
+  /** Está revendo um horário passado? */
+  const inHistory = computed(() => history.at !== null);
+  /** O que a tela mostra: o estado do histórico, ou o ao vivo. */
+  const shown = computed(() => (inHistory.value ? (history.state ?? undefined) : active.value));
 
-  /** Ramais e troncos do servidor ativo, prontos para exibir e ordenados. */
-  const endpoints = computed(() => {
-    const trunks = new Set(active.value?.trunks ?? []);
-    return Object.values(active.value?.endpoints ?? {})
+  /** Ramais e troncos AO VIVO (os alertas de desconexão nunca olham o histórico). */
+  const liveEndpoints = computed(() => endpointsOf(active.value));
+
+  /** Ramais e troncos do servidor ativo (ou do horário do histórico), ordenados. */
+  const endpoints = computed(() => endpointsOf(shown.value));
+  function endpointsOf(s: ServerState | undefined) {
+    const trunks = new Set(s?.trunks ?? []);
+    return Object.values(s?.endpoints ?? {})
       .map((ep) => endpointView(ep, trunks.has(ep.id)))
       .sort((a, b) => compareEndpointIds(a.id, b.id));
-  });
+  }
 
   /** Chamadas do servidor ativo, das mais antigas para as mais novas. */
   const calls = computed(() => {
-    const s = active.value;
+    const s = shown.value;
     if (!s) return [];
     return Object.values(s.calls)
       .map((c) => callView(c, s.channels))
@@ -60,7 +85,7 @@ export const useMonitorStore = defineStore('monitor', () => {
 
   /** Filas do servidor ativo, em ordem alfabética, com membros e chamadores aguardando. */
   const queues = computed(() => {
-    const s = active.value;
+    const s = shown.value;
     if (!s) return [];
     return Object.values(s.queues)
       .map((q) => queueView(q, s.queueMembers, s.queueEntries, s.queueForecasts[q.name] ?? null))
@@ -68,18 +93,23 @@ export const useMonitorStore = defineStore('monitor', () => {
   });
 
   /** Total de chamadores aguardando em todas as filas. */
-  const waitingTotal = computed(() => Object.keys(active.value?.queueEntries ?? {}).length);
+  const waitingTotal = computed(() => Object.keys(shown.value?.queueEntries ?? {}).length);
 
   /** Dados na tela podem estar desatualizados (sem conexão ou sincronizando). */
   const stale = computed(
     () =>
-      connection.value !== 'online' ||
-      !active.value?.hasSnapshot ||
-      active.value.status !== 'ready',
+      !inHistory.value &&
+      (connection.value !== 'online' ||
+        !active.value?.hasSnapshot ||
+        active.value.status !== 'ready'),
   );
 
-  /** O usuário tem a permissão no servidor ativo? (só para mostrar botões; o backend revalida) */
+  /**
+   * O usuário tem a permissão no servidor ativo? (só para mostrar botões; o backend revalida)
+   * No histórico nenhuma ação aparece: o que está na tela já passou.
+   */
   function can(perm: Permission): boolean {
+    if (inHistory.value) return false;
     return active.value?.permissions.includes(perm) ?? false;
   }
 
@@ -146,7 +176,51 @@ export const useMonitorStore = defineStore('monitor', () => {
   }
 
   function selectServer(id: string): void {
-    if (servers[id]) activeServerId.value = id;
+    if (!servers[id]) return;
+    if (id !== activeServerId.value) exitHistory();
+    activeServerId.value = id;
+  }
+
+  /**
+   * Mostra o estado do servidor ativo no horário `at` (ms). Pode ser chamado várias vezes
+   * seguidas (barra arrastada): vale a resposta do último pedido.
+   */
+  async function showHistory(at: number): Promise<void> {
+    const server = active.value;
+    if (!conn || !server) return;
+    const seq = ++historySeq;
+    history.at = at;
+    frozenAt.value = at;
+    history.loading = true;
+    const res = await conn.requestHistory(server.id, at);
+    if (seq !== historySeq || history.at === null) return; // pedido mais novo, ou saiu do histórico
+    history.loading = false;
+    if (res.from !== null) history.from = res.from;
+    if (!res.ok || !res.data) {
+      history.state = null;
+      history.error = HISTORY_ERRORS[res.code ?? ''] ?? 'Não foi possível carregar o histórico.';
+      return;
+    }
+    const s = createServerState({
+      id: server.id,
+      name: server.name,
+      status: res.status ?? 'ready',
+      permissions: [],
+      trunks: server.trunks,
+    });
+    applySnapshot(s, { t: 'snapshot', server: server.id, epoch: 0, seq: 0, data: res.data });
+    history.state = s;
+    history.error = null;
+  }
+
+  /** Volta ao ao vivo. */
+  function exitHistory(): void {
+    historySeq++;
+    history.at = null;
+    history.state = null;
+    history.error = null;
+    history.loading = false;
+    frozenAt.value = null;
   }
 
   function handleMessage(msg: ServerMessage): void {
@@ -161,9 +235,12 @@ export const useMonitorStore = defineStore('monitor', () => {
             existing.status = info.status;
             existing.permissions = info.permissions ?? [];
             existing.trunks = info.trunks ?? [];
+            existing.history = info.history ?? false;
           }
         }
         for (const id of Object.keys(servers)) if (!visible.has(id)) delete servers[id];
+        // perdeu a permissão do histórico (token renovado): volta ao ao vivo
+        if (inHistory.value && !servers[activeServerId.value ?? '']?.history) exitHistory();
         if (!activeServerId.value || !visible.has(activeServerId.value)) {
           activeServerId.value = msg.servers[0]?.id ?? null;
         }
@@ -197,6 +274,9 @@ export const useMonitorStore = defineStore('monitor', () => {
     activeServerId,
     serverList,
     active,
+    history,
+    inHistory,
+    liveEndpoints,
     endpoints,
     calls,
     queues,
@@ -212,9 +292,20 @@ export const useMonitorStore = defineStore('monitor', () => {
     connect,
     disconnect,
     selectServer,
+    showHistory,
+    exitHistory,
     handleMessage,
   };
 });
+
+/** Mensagens para os códigos de erro do histórico. */
+const HISTORY_ERRORS: Record<string, string> = {
+  not_found: 'Sem histórico neste horário (antes do início da gravação ou além do prazo guardado).',
+  forbidden: 'Sem permissão para ver o histórico deste servidor.',
+  unavailable: 'O histórico está desligado neste servidor.',
+  disconnected: 'Sem conexão com o servidor.',
+  timeout: 'O servidor não respondeu a tempo.',
+};
 
 /** Dono padrão de diálogos e avisos (quando o componente não está dentro de um elemento). */
 export const DEFAULT_OWNER = 'default';

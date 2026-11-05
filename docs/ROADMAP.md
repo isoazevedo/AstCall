@@ -658,7 +658,9 @@ guardar 7 dias (`HISTORY_DAYS`); ligado por padrão (`HISTORY_ENABLED`).
 - [x] Fase 2 — consulta pelo WebSocket (`history` → `history_state`) com filtro de empresa usando
       os canais do próprio horário; permissão `history`; `ServerInfo.history`; contrato 1.5 e
       AzCall PR #78 (`astcall.history`, migration 167)
-- [ ] Fase 3 — tela: barra de horário, painel congelado no momento, sem ações
+- [x] Fase 3 — tela: botão "Histórico", barra deslizante, passos de −15 a +5 min, "Ir para"
+      data e hora; relógio da tela parado no horário; ações e Sugestões escondidas; alertas de
+      desconexão continuam ao vivo
 - [ ] Fase 4 — reprodução (1x/10x/60x), guias e prints
 
 **Esforço estimado:** M
@@ -772,3 +774,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-11-03 | Claude Code | Item 26 concluído (fase 4): horário de pico no simulador, guias, README e prints da previsão e das sugestões                                                                                               |
 | 2026-11-03 | Claude Code | Item 27, fase 1: gravação do histórico do estado (fotos + deltas em SQLite) e reconstrução por horário                                                                                                     |
 | 2026-11-03 | Claude Code | Item 27, fase 2: consulta do histórico pelo WebSocket, permissão `history` e contrato 1.5 (AzCall PR #78)                                                                                                  |
+| 2026-11-03 | Claude Code | Item 27, fase 3: barra do histórico no painel (horário congelado, sem ações; alertas seguem ao vivo)                                                                                                       |

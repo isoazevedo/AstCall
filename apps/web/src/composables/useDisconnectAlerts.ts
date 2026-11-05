@@ -21,12 +21,13 @@ import { useNow } from './useNow';
  */
 export function useDisconnectAlerts(owner: string) {
   const store = useMonitorStore();
-  const now = useNow();
+  // relógio e ramais ao vivo: rever o histórico não pode disparar (nem calar) alertas
+  const now = useNow({ live: true });
   const prefs = ref<AlertPrefs>(loadAlertPrefs());
   watch(prefs, (p) => saveAlertPrefs(p), { deep: true });
 
   /** Vigiados fora do ar (com ou sem alerta). */
-  const items = computed<DownItem[]>(() => downItems(store.endpoints, prefs.value, now.value));
+  const items = computed<DownItem[]>(() => downItems(store.liveEndpoints, prefs.value, now.value));
   /** Os que estão em alerta (o número no sino). */
   const alerting = computed(() => items.value.filter((i) => i.alerting));
 

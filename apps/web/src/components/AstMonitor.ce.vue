@@ -13,6 +13,7 @@
  */
 import { computed, ref } from 'vue';
 import {
+  History,
   LayoutDashboard,
   ListOrdered,
   Phone,
@@ -32,6 +33,8 @@ import TvBoard from './TvBoard.ce.vue';
 import DisconnectBell from './DisconnectBell.ce.vue';
 import DisconnectPanel from './DisconnectPanel.ce.vue';
 import CopilotPanel from './CopilotPanel.ce.vue';
+import HistoryBar from './HistoryBar.ce.vue';
+import { HISTORY_START_OFFSET_MS } from '../lib/history';
 import { useDisconnectAlerts } from '../composables/useDisconnectAlerts';
 
 /**
@@ -68,8 +71,14 @@ const showDown = computed(() => alerts.prefs.value.enabled && alerts.alerting.va
 const { can } = useWidget();
 const showCopilot = computed(() => can('queue') || can('queue_manage'));
 
+/** Abre o histórico alguns minutos antes de agora (a barra permite ir para outro horário). */
+function openHistory(): void {
+  void store.showHistory(Date.now() - HISTORY_START_OFFSET_MS);
+}
+
 /** Selo de conexão no canto superior. */
 const badge = computed(() => {
+  if (store.inHistory) return { tone: 'info', text: 'Histórico', icon: History };
   if (store.connection === 'online') {
     const status = store.active?.status;
     if (status === 'ready') return { tone: 'success', text: 'Tempo real', icon: Wifi };
@@ -123,6 +132,15 @@ const stats = computed(() => {
         </p>
       </div>
       <div class="ast-header-right">
+        <button
+          v-if="store.active?.history && !store.inHistory"
+          type="button"
+          class="hist-open"
+          title="Rever o painel em um horário passado"
+          @click="openHistory"
+        >
+          <History :size="16" aria-hidden="true" /> Histórico
+        </button>
         <DisconnectBell :alerts="alerts" />
         <span class="ast-badge" :class="`tone-${badge.tone}`" role="status">
           <component :is="badge.icon" :size="14" aria-hidden="true" />
@@ -144,6 +162,8 @@ const stats = computed(() => {
         {{ s.name }}
       </button>
     </nav>
+
+    <HistoryBar v-if="store.inHistory" />
 
     <div v-if="store.stale && store.active?.hasSnapshot" class="ast-alert" role="alert">
       Conexão instável — os dados abaixo podem estar desatualizados.
@@ -210,3 +230,23 @@ const stats = computed(() => {
 </template>
 
 <style src="../styles/base.css"></style>
+
+<style>
+.hist-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--ast-border);
+  border-radius: var(--ast-radius);
+  background: none;
+  color: var(--ast-heading);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.hist-open:hover {
+  border-color: var(--ast-info);
+  color: var(--ast-info);
+}
+</style>

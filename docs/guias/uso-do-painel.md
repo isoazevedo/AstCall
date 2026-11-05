@@ -165,6 +165,24 @@ cartão **Sugestões**: o painel aponta o que fazer quando uma fila corre risco.
 Só aparecem sugestões que você tem permissão para executar: **Retomar** exige "Pausar membros de
 fila"; **Adicionar**, "Adicionar/remover membros de fila".
 
+## Histórico (máquina do tempo)
+
+O botão **Histórico** no topo do painel mostra como estava a operação num horário passado: quem
+estava em conversa, quantos clientes aguardavam em cada fila, quem estava em pausa e a previsão
+das filas naquele momento. Serve para responder "o que aconteceu às 14:32?" depois de uma
+reclamação ou de um pico.
+
+- Arraste a **barra** (do início do histórico até agora), use os botões **−15 min** a **+5 min**
+  ou digite a data e a hora em **Ir para**.
+- Os tempos na tela ("em conversa há 2 min", espera na fila) valem para aquele horário.
+- No histórico **nenhuma ação aparece** (desligar, pausar...): o que está na tela já passou.
+- **Voltar ao vivo** retorna ao tempo real. Os alertas de desconexão continuam funcionando
+  normalmente enquanto você revê o histórico.
+- Se o PBX estava desconectado naquele horário, a barra avisa que os dados podem estar
+  incompletos.
+
+O histórico guarda os últimos **7 dias** (configurável) e precisa da permissão **Ver o histórico**.
+
 ## Alertas de desconexão
 
 Avisam quando um ramal ou tronco **que estava online** fica fora do ar — por exemplo, um

@@ -26,6 +26,8 @@ export interface ServerState {
   permissions: Permission[];
   /** Endpoints que são troncos (operadora), informados no login. */
   trunks: string[];
+  /** O histórico (máquina do tempo) está disponível para o usuário neste servidor. */
+  history: boolean;
   /** Já recebeu um snapshot do epoch atual (o estado na tela é confiável)? */
   hasSnapshot: boolean;
   epoch: number | null;
@@ -47,6 +49,7 @@ export function createServerState(info: ServerInfo): ServerState {
     status: info.status,
     permissions: info.permissions ?? [],
     trunks: info.trunks ?? [],
+    history: info.history ?? false,
     hasSnapshot: false,
     epoch: null,
     seq: 0,

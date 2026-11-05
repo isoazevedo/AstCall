@@ -4,6 +4,7 @@ import {
   type ActionParams,
   type ActionResultMessage,
   type ClientMessage,
+  type HistoryStateMessage,
   type ServerMessage,
   type TokenResponse,
 } from '@astcall/shared';
@@ -56,6 +57,10 @@ export class MonitorConnection {
     string,
     { resolve: (r: ActionResultMessage) => void; timer: ReturnType<typeof setTimeout> }
   >();
+  private readonly pendingHistory = new Map<
+    string,
+    { resolve: (r: HistoryStateMessage) => void; timer: ReturnType<typeof setTimeout> }
+  >();
   private readonly opts: Required<Omit<MonitorConnectionOptions, 'baseUrl'>> & { baseUrl?: string };
 
   constructor(options: MonitorConnectionOptions) {
@@ -106,6 +111,34 @@ export class MonitorConnection {
     });
   }
 
+  /**
+   * Pede o estado de um servidor num horário passado (máquina do tempo) e aguarda o
+   * `history_state` (no máximo 10 s). Nunca rejeita: falhas viram { ok: false, code }.
+   */
+  requestHistory(server: string, at: number): Promise<HistoryStateMessage> {
+    const reqId = `h${++this.reqSeq}`;
+    const failed = (code: string): HistoryStateMessage => ({
+      t: 'history_state',
+      reqId,
+      server,
+      at,
+      ok: false,
+      code,
+      from: null,
+    });
+    if (this.ws?.readyState !== 1 || this.state !== 'online') {
+      return Promise.resolve(failed('disconnected'));
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingHistory.delete(reqId);
+        resolve(failed('timeout'));
+      }, 10_000);
+      this.pendingHistory.set(reqId, { resolve, timer });
+      this.send({ t: 'history', reqId, server, at });
+    });
+  }
+
   /** Pede um snapshot novo de um servidor (ex.: lacuna na numeração dos deltas). */
   resync(server: string): void {
     this.send({ t: 'resync', server });
@@ -149,6 +182,15 @@ export class MonitorConnection {
       if (pending) {
         clearTimeout(pending.timer);
         this.pendingActions.delete(msg.reqId);
+        pending.resolve(msg);
+      }
+      return;
+    }
+    if (msg.t === 'history_state') {
+      const pending = this.pendingHistory.get(msg.reqId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pendingHistory.delete(msg.reqId);
         pending.resolve(msg);
       }
       return;
