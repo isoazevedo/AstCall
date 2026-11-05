@@ -20,6 +20,7 @@ import {
 import { useNow } from '../composables/useNow';
 import ActionMenu, { type MenuItem } from './ActionMenu.ce.vue';
 import { formatDuration, type CallView, type Party } from '../lib/view';
+import { qualityBadge } from '../lib/quality';
 import { useWidget } from '../composables/useWidget';
 
 defineProps<{ calls: CallView[]; loading: boolean }>();
@@ -121,6 +122,14 @@ function duration(call: CallView): string {
               >
                 {{ call.label }}
               </span>
+              <span
+                v-if="call.quality"
+                class="ast-badge voice-badge"
+                :class="`tone-${qualityBadge(call.quality).tone}`"
+                :title="qualityBadge(call.quality).title"
+              >
+                {{ qualityBadge(call.quality).label }}
+              </span>
               <span v-if="call.monitored" class="spied" title="Um supervisor está escutando">
                 <Headphones :size="13" aria-hidden="true" /> Em escuta
               </span>
@@ -138,6 +147,10 @@ function duration(call: CallView): string {
 </template>
 
 <style>
+.voice-badge {
+  margin-left: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
 .calls {
   width: 100%;
   border-collapse: collapse;

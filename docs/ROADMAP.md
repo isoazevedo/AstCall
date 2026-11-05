@@ -683,8 +683,10 @@ sem mudar o `manager.conf`; o Asterisk 20 já calcula a nota MES) em vez dos eve
       `CHANNEL(rtcp,all)` devolve MES, jitter, RTT e perdas (ligação real: MES 86–88)
 - [x] Fase 2 — backend: `QualityMonitor` (Getvar por canal PJSIP em conversa), `Channel.quality`
       e `Endpoint.quality` (média e `degradedSince`); `QUALITY_INTERVAL_MS`, `QUALITY_DEGRADED_BELOW`
-- [ ] Fase 3 — tela: selo de qualidade nas chamadas, aviso de tronco degradado, modo TV
-- [ ] Fase 4 — simulador com notas fictícias (tronco que piora), guias e prints
+- [x] Fase 3 — tela: selo "Voz boa/regular/ruim" nas chamadas (lista e modo TV), nota média
+      nos cartões de ramal/tronco, seção "Qualidade de voz" com tronco degradado há 2 min
+- [x] Fase 4 — simulador responde `Getvar` (ramal "de Wi-Fi" regular, tronco que piora num
+      ciclo de 10 min), guias (uso, standalone, Asterisk) e print `qualidade.png`
 
 **Esforço estimado:** M
 **Impacto esperado:** Médio
@@ -789,3 +791,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-11-03 | Claude Code | Item 27, fase 3: barra do histórico no painel (horário congelado, sem ações; alertas seguem ao vivo)                                                                                                       |
 | 2026-11-05 | Claude Code | Item 27 concluído (fase 4): reprodução 1x/10x/60x, lacunas de gravação, Node 22 ao lado no laboratório e guias                                                                                             |
 | 2026-11-05 | Claude Code | Item 28, fases 1 e 2: sondagem do RTCP no laboratório e medição da qualidade de voz no backend                                                                                                             |
+| 2026-11-05 | Claude Code | Item 28 concluído (fases 3 e 4): selos de qualidade de voz, aviso de tronco degradado, simulador e guias                                                                                                   |

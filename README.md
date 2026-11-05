@@ -29,7 +29,8 @@ Supervisors can hang up, transfer, listen/whisper/barge (ChanSpy), and pause or 
 each action checked against per-user permissions and audited. It also has a TV wallboard mode,
 embeddable Web Components and multi-tenant scoping. Queue forecasting (Erlang C) predicts the
 service level for the next minutes, and a supervisor copilot suggests resuming paused agents or
-adding free extensions to a queue at risk — always with confirmation. A time machine replays the panel at any moment of the last 7 days.
+adding free extensions to a queue at risk — always with confirmation. A time machine replays the panel at any moment of the last 7 days, and each call shows a voice
+quality score (RTCP MES) with an alert when a trunk degrades.
 
 Stack: Node.js + TypeScript backend (own AMI client, in-memory state), Vue 3 Web Components.
 Runs standalone (own login) or embedded in a PHP system. Try it without an Asterisk server with
@@ -53,6 +54,8 @@ Runs standalone (own login) or embedded in a PHP system. Try it without an Aster
 - **Sugestões (copiloto)**: quando uma fila corre risco, sugere retomar quem está em pausa ou
   adicionar um ramal livre, sempre com confirmação; avisa também pausas longas.
 - **Alertas de desconexão**: som e notificação quando um ramal ou tronco cai.
+- **Qualidade de voz**: nota de 0 a 100 em cada conversa (medida pelo Asterisk via RTCP) e aviso
+  quando um tronco piora.
 - **Histórico (máquina do tempo)**: reveja o painel em qualquer horário dos últimos 7 dias, ou
   reproduza em 10x/60x — quem estava em conversa, a fila, as pausas e a previsão naquele momento.
 - **Ações** (conforme a permissão de cada usuário):

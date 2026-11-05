@@ -161,6 +161,12 @@
 .tone-text-warning {
   color: var(--ast-warning);
 }
+.tone-text-danger {
+  color: var(--ast-danger);
+}
+.tone-text-info {
+  color: var(--ast-info);
+}
 
 .ast-tabs {
   display: flex;

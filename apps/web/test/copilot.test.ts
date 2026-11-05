@@ -81,6 +81,7 @@ const ep = (id: string, extra: Partial<EndpointView> = {}): EndpointView => ({
   activeChannels: 0,
   trunk: false,
   offlineSince: null,
+  quality: null,
   ...extra,
 });
 

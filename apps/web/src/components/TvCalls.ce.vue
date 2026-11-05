@@ -10,6 +10,7 @@ import { computed } from 'vue';
 import { ArrowLeftRight, Circle, Ear, Mic, PhoneIncoming } from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
 import { formatDuration, type CallView, type EndpointView } from '../lib/view';
+import { qualityBadge } from '../lib/quality';
 
 const props = defineProps<{ calls: CallView[]; endpoints: EndpointView[]; loading: boolean }>();
 
@@ -52,6 +53,14 @@ const partyText = (p: CallView['parties'][number]) => (p.name ? `${p.num} ${p.na
           </span>
 
           <span class="tv-call-tags">
+            <span
+              v-if="c.quality"
+              class="ast-badge"
+              :class="`tone-${qualityBadge(c.quality).tone}`"
+              :title="qualityBadge(c.quality).title"
+            >
+              {{ qualityBadge(c.quality).label }}
+            </span>
             <span v-if="c.queue" class="tv-tag" :title="`Fila ${c.queue}`">
               <PhoneIncoming :size="18" aria-hidden="true" /> {{ c.queue }}
             </span>

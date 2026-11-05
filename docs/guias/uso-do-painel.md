@@ -165,6 +165,26 @@ cartão **Sugestões**: o painel aponta o que fazer quando uma fila corre risco.
 Só aparecem sugestões que você tem permissão para executar: **Retomar** exige "Pausar membros de
 fila"; **Adicionar**, "Adicionar/remover membros de fila".
 
+## Qualidade de voz
+
+Cada chamada em conversa ganha um selo com a **nota de qualidade de voz** (de 0 a 100), medida
+pelo Asterisk a cada 10 segundos a partir do RTCP — o mesmo cálculo de "experiência do áudio" que
+considera atraso, variação de atraso (jitter) e perda de pacotes:
+
+![Selos de qualidade nas chamadas](../img/qualidade.png)
+
+- **Voz boa** (80 ou mais), **Voz regular** (60 a 79) e **Voz ruim** (abaixo de 60). Passe o
+  mouse no selo para ver o jitter, o atraso e a perda daquela chamada.
+- Nos cartões de ramal e tronco aparece a nota média das conversas em curso ("1 canal · voz 84").
+- Quando a média de um **tronco** fica abaixo de 70 por **2 minutos**, a seção **Qualidade de
+  voz** avisa — normalmente é a operadora ou a internet do link com problema. O aviso some
+  sozinho quando a qualidade volta.
+- A nota também fica no **histórico**: dá para rever como estava a qualidade de uma ligação que
+  gerou reclamação.
+
+Chamadas sem selo: o áudio não passa pelo Asterisk (opção `direct_media` do PJSIP) ou a conversa
+acabou de começar (o primeiro relatório RTCP leva alguns segundos).
+
 ## Histórico (máquina do tempo)
 
 O botão **Histórico** no topo do painel mostra como estava a operação num horário passado: quem

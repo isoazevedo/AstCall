@@ -2,10 +2,15 @@
 /** Cartão de um ramal: número, situação (cor do tema), aparelho e canais ativos. */
 import { PhoneOutgoing } from 'lucide-vue-next';
 import type { EndpointView } from '../lib/view';
+import { qualityLevel } from '../lib/quality';
 import { useWidget } from '../composables/useWidget';
 
 defineProps<{ endpoint: EndpointView }>();
 const { can, open } = useWidget();
+
+/** Cor da nota de voz (mesmas faixas dos selos das chamadas). */
+const qualityTone = (mes: number) =>
+  ({ good: 'success', fair: 'warning', poor: 'danger' })[qualityLevel(mes)];
 </script>
 
 <template>
@@ -27,6 +32,14 @@ const { can, open } = useWidget();
     </div>
     <div v-if="endpoint.activeChannels > 0" class="ep-calls">
       {{ endpoint.activeChannels }} {{ endpoint.activeChannels === 1 ? 'canal' : 'canais' }}
+      <span
+        v-if="endpoint.quality"
+        class="ep-voice"
+        :class="`tone-text-${qualityTone(endpoint.quality.mes)}`"
+        :title="`Qualidade de voz média: nota ${Math.round(endpoint.quality.mes)} de 100`"
+      >
+        · voz {{ Math.round(endpoint.quality.mes) }}
+      </span>
     </div>
     <button
       v-if="can('originate') && endpoint.group !== 'offline'"

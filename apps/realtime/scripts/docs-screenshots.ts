@@ -261,6 +261,18 @@ const SHOTS: Shot[] = [
       window.scrollBy(0, -90); await wait(500);`,
   },
   {
+    file: 'qualidade.png',
+    path: '/',
+    theme: 'dark',
+    desc: 'qualidade de voz — selos nas chamadas e tronco degradado',
+    // o tronco da demo piora do 4º ao 9º minuto; o aviso aparece 2 min depois
+    prepare: `${MONITOR_READY}
+      await until(() => root().querySelector('.voice-panel'), 600000);
+      await until(() => root().querySelector('.voice-badge'));
+      root().querySelector('.voice-panel').scrollIntoView({ block: 'start' });
+      window.scrollBy(0, -90); await wait(500);`,
+  },
+  {
     file: 'historico.png',
     path: '/',
     theme: 'dark',

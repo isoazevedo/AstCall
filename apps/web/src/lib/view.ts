@@ -4,11 +4,14 @@ import type {
   Channel,
   DeviceState,
   Endpoint,
+  EndpointQuality,
   Queue,
   QueueEntry,
   QueueForecast,
   QueueMember,
+  VoiceQuality,
 } from '@astcall/shared';
+import { callQuality } from './quality';
 
 /**
  * Funções puras que transformam o estado bruto em dados prontos para a tela
@@ -35,6 +38,8 @@ export interface EndpointView {
   trunk: boolean;
   /** Desde quando está fora do ar (ms), se o backend viu a queda; senão null. */
   offlineSince: number | null;
+  /** Qualidade de voz média das conversas em curso (null = sem medição agora). */
+  quality: EndpointQuality | null;
 }
 
 const DEVICE: Record<DeviceState, { label: string; tone: Tone; group: EndpointGroup }> = {
@@ -62,6 +67,7 @@ export function endpointView(ep: Endpoint, trunk = false): EndpointView {
     activeChannels: ep.activeChannels,
     trunk,
     offlineSince: ep.offlineSince ?? null,
+    quality: ep.quality ?? null,
   };
 }
 
@@ -103,6 +109,8 @@ export interface CallView {
   spyTarget: Party | null;
   startedAt: number;
   answeredAt: number | null;
+  /** Qualidade de voz da chamada: a do pior canal medido (null = sem medição). */
+  quality: VoiceQuality | null;
 }
 
 const CALL_STATUS: Record<CallStatus, { label: string; tone: Tone }> = {
@@ -162,6 +170,7 @@ export function callView(call: Call, channels: Record<string, Channel>): CallVie
     queue: call.queue ?? null,
     startedAt: call.startedAt,
     answeredAt: call.answeredAt,
+    quality: callQuality(call.channelIds, channels),
   };
 }
 

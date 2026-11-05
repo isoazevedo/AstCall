@@ -720,9 +720,57 @@ function onAction(a: AmiMessage, socket: Socket & { authed?: boolean }): void {
       }
       return list(socket, id, items, 'QueueStatusComplete');
     }
+    case 'getvar': {
+      const ch = [...channels.values()].find((c) => c.name === a.channel);
+      if (!ch) return reply({ Response: 'Error', Message: 'No such channel' });
+      if (a.variable !== 'CHANNEL(rtcp,all)' || ch.state !== 'Up') {
+        return reply({ Response: 'Success', Variable: a.variable ?? '', Value: '' });
+      }
+      return reply({ Response: 'Success', Variable: a.variable, Value: rtcpStats(ch) });
+    }
     default:
       return reply({ Response: 'Error', Message: 'Invalid/unknown command' });
   }
+}
+
+/**
+ * Estatísticas RTCP fictícias no formato do `CHANNEL(rtcp,all)` do chan_pjsip. Na demonstração:
+ * conversas boas (nota 84–90), um ramal "de Wi-Fi" sempre regular e o tronco da operadora que
+ * piora num ciclo de 10 min (do 4º ao 9º minuto, nota ~60) — o painel mostra o aviso de tronco
+ * degradado depois de 2 min ruins.
+ */
+function rtcpStats(ch: LiveChannel): string {
+  const seed = [...ch.uniqueid].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const jitterNoise = (seed % 7) / 1000;
+  const minute = ((Date.now() - simStartedAt) / 60_000) % 10;
+  const endpoint = ch.name.slice('PJSIP/'.length, ch.name.lastIndexOf('-'));
+  let mes = 84 + (seed % 7); // boa
+  let jitter = 0.012 + jitterNoise;
+  let lossPct = 0.2;
+  if (opts.demo && endpoint === TRUNK && minute >= 4 && minute < 9) {
+    mes = 57 + (seed % 9); // tronco degradado
+    jitter = 0.045 + jitterNoise;
+    lossPct = 3;
+  } else if (opts.demo && endpoint === ext(4)) {
+    mes = 70 + (seed % 6); // telefone em Wi-Fi: regular
+    jitter = 0.03 + jitterNoise;
+    lossPct = 1;
+  }
+  const count = Math.max(1, Math.round((Date.now() - ch.createdAt) / 20)); // 50 pacotes/s
+  const lost = Math.round((count * lossPct) / 100);
+  return [
+    `ssrc=${seed}`,
+    `themssrc=${seed ^ 0xffff}`,
+    `lp=${lost}`,
+    `rxjitter=${jitter.toFixed(6)}`,
+    `rxcount=${count}`,
+    `txjitter=${(jitter * 0.8).toFixed(6)}`,
+    `txcount=${count}`,
+    `rlp=${Math.round(lost / 2)}`,
+    `rtt=${(0.04 + (seed % 5) / 100).toFixed(6)}`,
+    `rxmes=${mes.toFixed(6)}`,
+    `txmes=${(mes + 0.4).toFixed(6)}`,
+  ].join(';');
 }
 
 const server = createServer((socket: Socket & { authed?: boolean }) => {

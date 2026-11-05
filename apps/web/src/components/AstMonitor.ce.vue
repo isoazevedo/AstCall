@@ -32,6 +32,7 @@ import ToastHost from './ToastHost.ce.vue';
 import TvBoard from './TvBoard.ce.vue';
 import DisconnectBell from './DisconnectBell.ce.vue';
 import DisconnectPanel from './DisconnectPanel.ce.vue';
+import QualityPanel from './QualityPanel.ce.vue';
 import CopilotPanel from './CopilotPanel.ce.vue';
 import HistoryBar from './HistoryBar.ce.vue';
 import { HISTORY_START_OFFSET_MS } from '../lib/history';
@@ -211,6 +212,7 @@ const stats = computed(() => {
 
     <!-- v-if monta só o que a aba ativa mostra (o resto sai da página). -->
     <DisconnectPanel v-if="showDown && shows('endpoints')" :alerts="alerts" />
+    <QualityPanel v-if="shows('endpoints')" />
     <CallList v-if="shows('calls')" :calls="store.calls" :loading="!store.active?.hasSnapshot" />
     <EndpointGrid
       v-if="shows('endpoints')"

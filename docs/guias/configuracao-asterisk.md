@@ -28,6 +28,9 @@ write = system,call,agent,originate,reporting   ; SEM "command"
 writetimeout = 5000
 ```
 
+> A qualidade de voz usa a action `Getvar` (classes `call`/`reporting`, já no `write` acima)
+> para ler `CHANNEL(rtcp,all)` dos canais em conversa — não precisa de mais nada no Asterisk.
+>
 > No AzCall, o `manager.conf` pode já ter outros usuários: só **acrescente** a seção `[astcall]`.
 > Nunca exponha a porta 5038 à internet.
 
@@ -64,9 +67,10 @@ AMI_PBX1_SECRET=<a mesma senha do manager.conf>
 
 ## Problemas comuns
 
-| Sintoma no log do AstCall             | Causa provável                                                  |
-| ------------------------------------- | --------------------------------------------------------------- |
-| `Authentication failed`               | usuário/senha diferentes entre `manager.conf` e `.env`          |
-| conexão recusada / tempo esgotado     | `bindaddr`, `port`, firewall ou `permit` sem o IP do AstCall    |
-| sincroniza mas filas não aparecem     | módulo `app_queue` não carregado (o resto funciona normalmente) |
-| ações recusadas (`Permission denied`) | faltou alguma classe no `write`                                 |
+| Sintoma no log do AstCall             | Causa provável                                                   |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| `Authentication failed`               | usuário/senha diferentes entre `manager.conf` e `.env`           |
+| conexão recusada / tempo esgotado     | `bindaddr`, `port`, firewall ou `permit` sem o IP do AstCall     |
+| sincroniza mas filas não aparecem     | módulo `app_queue` não carregado (o resto funciona normalmente)  |
+| ações recusadas (`Permission denied`) | faltou alguma classe no `write`                                  |
+| chamadas sem selo de qualidade de voz | `direct_media=yes` no endpoint (o áudio não passa pelo Asterisk) |

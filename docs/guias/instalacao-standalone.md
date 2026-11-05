@@ -94,6 +94,13 @@ Previsão das filas (opcional, todos com padrão):
 | `DEFAULT_AHT_SECONDS`  | 180    | atendimento médio (s) usado até a fila ter um atendimento concluído    |
 | `FORECAST_INTERVAL_MS` | 5000   | de quanto em quanto tempo a previsão é recalculada                     |
 
+Qualidade de voz (nota RTCP das conversas), ligada por padrão:
+
+| Variável                 | Padrão | O que define                                                       |
+| ------------------------ | ------ | ------------------------------------------------------------------ |
+| `QUALITY_INTERVAL_MS`    | 10000  | intervalo entre medições de cada conversa (0 desliga)              |
+| `QUALITY_DEGRADED_BELOW` | 70     | nota média abaixo da qual um tronco conta como qualidade degradada |
+
 Histórico (máquina do tempo), ligado por padrão:
 
 | Variável                 | Padrão                | O que define                                            |
