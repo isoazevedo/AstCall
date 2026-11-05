@@ -661,7 +661,8 @@ guardar 7 dias (`HISTORY_DAYS`); ligado por padrão (`HISTORY_ENABLED`).
 - [x] Fase 3 — tela: botão "Histórico", barra deslizante, passos de −15 a +5 min, "Ir para"
       data e hora; relógio da tela parado no horário; ações e Sugestões escondidas; alertas de
       desconexão continuam ao vivo
-- [ ] Fase 4 — reprodução (1x/10x/60x), guias e prints
+- [x] Fase 4 — reprodução (1x/10x/60x), aviso de lacuna (AstCall desligado), abre no início da
+      gravação quando o histórico é recente; guia e print `historico.png`
 
 **Esforço estimado:** M
 **Impacto esperado:** Alto
@@ -775,3 +776,4 @@ nenhum painel aberto. No modo integrado, aproveitar a configuração de notifica
 | 2026-11-03 | Claude Code | Item 27, fase 1: gravação do histórico do estado (fotos + deltas em SQLite) e reconstrução por horário                                                                                                     |
 | 2026-11-03 | Claude Code | Item 27, fase 2: consulta do histórico pelo WebSocket, permissão `history` e contrato 1.5 (AzCall PR #78)                                                                                                  |
 | 2026-11-03 | Claude Code | Item 27, fase 3: barra do histórico no painel (horário congelado, sem ações; alertas seguem ao vivo)                                                                                                       |
+| 2026-11-05 | Claude Code | Item 27 concluído (fase 4): reprodução 1x/10x/60x, lacunas de gravação, Node 22 ao lado no laboratório e guias                                                                                             |

@@ -7,17 +7,24 @@
  * Conceitos: o valor da barra deslizante muda na hora (`draft`), mas o pedido ao servidor
  * só sai quando o usuário para de arrastar por um instante (debounce com setTimeout) —
  * arrastar não dispara dezenas de pedidos.
+ *
+ * Reprodução: a cada segundo (setInterval) o horário anda 1, 10 ou 60 s e o painel pede o
+ * estado novo. Mexer na barra pausa; ao alcançar o presente, volta ao vivo.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
-import { History, Radio, TriangleAlert } from 'lucide-vue-next';
+import { History, Pause, Play, Radio, TriangleAlert } from 'lucide-vue-next';
 import { useNow } from '../composables/useNow';
 import {
   clampAt,
   formatAt,
   fromLocalInput,
   HISTORY_STEPS_MIN,
+  nextPlayAt,
+  PLAY_SPEEDS,
+  PLAY_TICK_MS,
   stepLabel,
   toLocalInput,
+  type PlaySpeed,
 } from '../lib/history';
 import { useMonitorStore } from '../stores/monitor';
 
@@ -37,10 +44,39 @@ watch(
 const min = computed(() => store.history.from ?? Math.min(draft.value, liveNow.value) - 3_600_000);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
-onUnmounted(() => clearTimeout(timer));
+onUnmounted(() => {
+  clearTimeout(timer);
+  pause();
+});
+
+// ---- reprodução
+const speed = ref<PlaySpeed>(10);
+const playing = ref(false);
+let playTimer: ReturnType<typeof setInterval> | undefined;
+
+function play(): void {
+  playing.value = true;
+  clearInterval(playTimer);
+  playTimer = setInterval(() => {
+    const step = nextPlayAt(draft.value, speed.value, PLAY_TICK_MS, liveNow.value);
+    if (step.done) {
+      pause();
+      store.exitHistory(); // alcançou o presente
+      return;
+    }
+    draft.value = step.at;
+    void store.showHistory(step.at);
+  }, PLAY_TICK_MS);
+}
+
+function pause(): void {
+  playing.value = false;
+  clearInterval(playTimer);
+}
 
 /** Vai para o horário `at` (limitado ao que existe), com espera opcional (barra arrastada). */
 function go(at: number, delayMs = 0): void {
+  pause(); // mexer na barra para a reprodução
   const target = clampAt(at, store.history.from, liveNow.value);
   draft.value = target;
   clearTimeout(timer);
@@ -72,7 +108,10 @@ const pbxWarning = computed(() => {
       <h5 class="ast-card-title">
         <History :size="18" aria-hidden="true" /> Histórico
         <span class="hist-time" aria-live="polite">{{ formatAt(draft, liveNow) }}</span>
-        <span v-if="store.history.loading" class="ast-badge tone-secondary">Carregando…</span>
+        <span v-if="store.history.loading && !playing" class="ast-badge tone-secondary">
+          Carregando…
+        </span>
+        <span v-if="playing" class="ast-badge tone-info">Reproduzindo {{ speed }}x</span>
       </h5>
       <button type="button" class="hist-live" @click="store.exitHistory()">
         <Radio :size="16" aria-hidden="true" /> Voltar ao vivo
@@ -95,6 +134,29 @@ const pbxWarning = computed(() => {
     </div>
 
     <div class="hist-controls">
+      <button
+        type="button"
+        class="hist-play"
+        :aria-pressed="playing"
+        @click="playing ? pause() : play()"
+      >
+        <component :is="playing ? Pause : Play" :size="16" aria-hidden="true" />
+        {{ playing ? 'Pausar' : 'Reproduzir' }}
+      </button>
+      <div class="hist-speeds" role="group" aria-label="Velocidade da reprodução">
+        <button
+          v-for="sp in PLAY_SPEEDS"
+          :key="sp"
+          type="button"
+          class="hist-step"
+          :class="{ active: speed === sp }"
+          :aria-pressed="speed === sp"
+          @click="speed = sp"
+        >
+          {{ sp }}x
+        </button>
+      </div>
+      <span class="hist-sep" aria-hidden="true"></span>
       <button
         v-for="step in HISTORY_STEPS_MIN"
         :key="step"
@@ -191,6 +253,35 @@ const pbxWarning = computed(() => {
 }
 .hist-step:hover {
   border-color: var(--ast-info);
+}
+.hist-step.active {
+  border-color: var(--ast-info);
+  background: rgba(var(--ast-info-rgb), 0.16);
+  color: var(--ast-info);
+}
+.hist-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border: 0;
+  border-radius: var(--ast-radius);
+  background: var(--ast-info);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hist-speeds {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.hist-sep {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--ast-border);
 }
 .hist-date {
   margin-left: auto;

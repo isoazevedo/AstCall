@@ -98,7 +98,10 @@ async function main(): Promise<void> {
   if (config.history) {
     const { dbFile, days } = config.history;
     try {
-      history = await HistoryStore.open(dbFile);
+      // sem foto há mais de 2 intervalos = o AstCall estava desligado naquele horário
+      history = await HistoryStore.open(dbFile, {
+        maxGapMs: config.history.checkpointMs * 2 + 60_000,
+      });
     } catch (err) {
       // Ex.: Node sem `node:sqlite` (anterior ao 22.5). O painel ao vivo segue funcionando.
       log.error(

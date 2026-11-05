@@ -66,5 +66,7 @@ export class HistoryRecorder {
     this.src.sync.off('synced', this.onSynced);
     this.src.conn.off('status', this.onStatus);
     this.flush();
+    // encerrando: daqui em diante não há gravação (a tela avisa em vez de mostrar dados velhos)
+    this.history.addStatus(this.serverId, this.now(), 'disconnected');
   }
 }

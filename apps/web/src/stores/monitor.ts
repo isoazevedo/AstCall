@@ -196,6 +196,10 @@ export const useMonitorStore = defineStore('monitor', () => {
     if (seq !== historySeq || history.at === null) return; // pedido mais novo, ou saiu do histórico
     history.loading = false;
     if (res.from !== null) history.from = res.from;
+    // pediu antes do início da gravação (ex.: histórico recém-ligado): vai para o início
+    if (res.code === 'not_found' && res.from !== null && at < res.from) {
+      return showHistory(res.from);
+    }
     if (!res.ok || !res.data) {
       history.state = null;
       history.error = HISTORY_ERRORS[res.code ?? ''] ?? 'Não foi possível carregar o histórico.';
@@ -302,6 +306,7 @@ export const useMonitorStore = defineStore('monitor', () => {
 const HISTORY_ERRORS: Record<string, string> = {
   not_found: 'Sem histórico neste horário (antes do início da gravação ou além do prazo guardado).',
   forbidden: 'Sem permissão para ver o histórico deste servidor.',
+  gap: 'Sem gravação neste horário: o AstCall estava desligado.',
   unavailable: 'O histórico está desligado neste servidor.',
   disconnected: 'Sem conexão com o servidor.',
   timeout: 'O servidor não respondeu a tempo.',

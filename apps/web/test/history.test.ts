@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { clampAt, formatAt, fromLocalInput, stepLabel, toLocalInput } from '../src/lib/history';
+import {
+  clampAt,
+  formatAt,
+  fromLocalInput,
+  nextPlayAt,
+  stepLabel,
+  toLocalInput,
+} from '../src/lib/history';
 
 // horários locais (o teste não depende do fuso de quem roda)
 const at = (d: number, h: number, m: number, s = 0) => new Date(2026, 10, d, h, m, s).getTime();
@@ -35,4 +42,16 @@ describe('campo de data e hora', () => {
 it('rótulos dos passos', () => {
   expect(stepLabel(-15)).toBe('−15 min');
   expect(stepLabel(1)).toBe('+1 min');
+});
+
+describe('reprodução', () => {
+  const now = at(3, 15, 0);
+  it('avança na velocidade escolhida', () => {
+    expect(nextPlayAt(at(3, 14, 0), 1, 1000, now)).toEqual({ at: at(3, 14, 0, 1), done: false });
+    expect(nextPlayAt(at(3, 14, 0), 10, 1000, now)).toEqual({ at: at(3, 14, 0, 10), done: false });
+    expect(nextPlayAt(at(3, 14, 0), 60, 1000, now)).toEqual({ at: at(3, 14, 1), done: false });
+  });
+  it('ao alcançar o presente, para', () => {
+    expect(nextPlayAt(at(3, 14, 59, 30), 60, 1000, now)).toEqual({ at: now, done: true });
+  });
 });

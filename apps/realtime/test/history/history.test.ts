@@ -46,6 +46,13 @@ function sources(store: ServerStore) {
 }
 
 const opened: HistoryStore[] = [];
+
+/** Estado no horário (falha o teste se vier uma lacuna). */
+function state(h: HistoryStore, at: number) {
+  const r = h.stateAt('pbx1', at);
+  if (r === 'gap') throw new Error(`lacuna inesperada em ${at}`);
+  return r;
+}
 async function openHistory(): Promise<HistoryStore> {
   const h = await HistoryStore.open(':memory:');
   opened.push(h);
@@ -107,8 +114,8 @@ describe('histórico com gravações reais', () => {
     expect(live.size).toBeGreaterThan(2);
     for (const [t, expected] of live) {
       const got = history.stateAt('pbx1', t);
-      expect(got, `horário ${t}`).not.toBeNull();
-      expect(normalize(got!.snapshot)).toEqual(normalize(expected));
+      if (!got || got === 'gap') throw new Error(`sem estado no horário ${t}`);
+      expect(normalize(got.snapshot)).toEqual(normalize(expected));
     }
   });
 });
@@ -127,11 +134,8 @@ describe('HistoryStore', () => {
     h.addBatches('pbx2', [{ ts: 1500, ops: [q('outro')] as never }]);
 
     expect(h.stateAt('pbx1', 999)).toBeNull();
-    expect(h.stateAt('pbx1', 1500)!.snapshot.queues.map((x) => x.name)).toEqual([
-      'antes',
-      'depois',
-    ]);
-    expect(h.stateAt('pbx1', 2000)!.snapshot.queues).toHaveLength(3);
+    expect(state(h, 1500)!.snapshot.queues.map((x) => x.name)).toEqual(['antes', 'depois']);
+    expect(state(h, 2000)!.snapshot.queues).toHaveLength(3);
     expect(h.firstAt('pbx1')).toBe(1000);
     expect(h.firstAt('pbx2')).toBeNull();
   });
@@ -141,8 +145,8 @@ describe('HistoryStore', () => {
     h.addCheckpoint('pbx1', 0, emptySnapshot());
     h.addStatus('pbx1', 100, 'ready');
     h.addStatus('pbx1', 200, 'disconnected');
-    expect(h.stateAt('pbx1', 150)!.status).toBe('ready');
-    expect(h.stateAt('pbx1', 250)!.status).toBe('disconnected');
+    expect(state(h, 150)!.status).toBe('ready');
+    expect(state(h, 250)!.status).toBe('disconnected');
   });
 
   it('prune apaga o antigo mas o horário do corte continua reconstruível', async () => {
@@ -157,7 +161,7 @@ describe('HistoryStore', () => {
     h.prune(200);
     expect(h.firstAt('pbx1')).toBe(100); // a foto de 100 cobre o horário 200
     expect(h.stateAt('pbx1', 50)).toBeNull();
-    expect(h.stateAt('pbx1', 200)!.snapshot.queues.map((x) => x.name)).toEqual(['a', 'b']);
+    expect(state(h, 200)!.snapshot.queues.map((x) => x.name)).toEqual(['a', 'b']);
   });
 });
 
@@ -179,7 +183,7 @@ describe('HistoryRecorder', () => {
     src.conn.emit('status', 'ready');
 
     expect(h.stateAt('pbx1', 1500)).toBeNull();
-    const at = h.stateAt('pbx1', 2000)!;
+    const at = state(h, 2000)!;
     expect(at.snapshot.queues.map((q) => q.name)).toEqual(['suporte']);
     expect(at.status).toBe('ready');
 
@@ -211,5 +215,15 @@ describe('scopeSnapshot', () => {
     expect(out.calls.map((c) => c.id)).toEqual(['a']);
     expect(out.channels.map((c) => c.uniqueid)).toEqual(['a', 'b']);
     expect(out.queues.map((q) => q.name)).toEqual(['suporte']);
+  });
+});
+
+describe('lacunas (AstCall desligado)', () => {
+  it('foto antiga demais antes do horário: gap', async () => {
+    const h = await HistoryStore.open(':memory:', { maxGapMs: 600_000 });
+    opened.push(h);
+    h.addCheckpoint('pbx1', 0, emptySnapshot());
+    expect(h.stateAt('pbx1', 500_000)).not.toBe('gap');
+    expect(h.stateAt('pbx1', 700_000)).toBe('gap');
   });
 });

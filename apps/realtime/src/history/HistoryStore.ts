@@ -40,7 +40,10 @@ export class HistoryStore {
     range: StatementSync;
   };
 
-  private constructor(private readonly db: DatabaseSync) {
+  private constructor(
+    private readonly db: DatabaseSync,
+    private readonly maxGapMs: number,
+  ) {
     // Versão do formato: se mudar, o histórico antigo é descartado (é só um histórico recente)
     const { user_version: version } = db.prepare('PRAGMA user_version').get() as {
       user_version: number;
@@ -93,13 +96,17 @@ export class HistoryStore {
     };
   }
 
-  /** Abre (ou cria) o banco. `file` pode ser ":memory:" (testes). */
-  static async open(file: string): Promise<HistoryStore> {
+  /**
+   * Abre (ou cria) o banco. `file` pode ser ":memory:" (testes).
+   * `maxGapMs`: foto mais antiga que isso antes do horário pedido = o AstCall não estava
+   * gravando naquele horário (desligado). Use um pouco mais que o dobro do intervalo das fotos.
+   */
+  static async open(file: string, options: { maxGapMs?: number } = {}): Promise<HistoryStore> {
     const { DatabaseSync } = await import('node:sqlite');
     if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
     const db = new DatabaseSync(file);
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
-    return new HistoryStore(db);
+    return new HistoryStore(db, options.maxGapMs ?? Number.POSITIVE_INFINITY);
   }
 
   close(): void {
@@ -126,16 +133,15 @@ export class HistoryStore {
   }
 
   /**
-   * Estado do servidor no horário `at` (ms), ou null se não houver foto até lá (antes do
-   * início do histórico ou depois do prazo de guarda).
+   * Estado do servidor no horário `at` (ms). `null` se não houver foto até lá (antes do
+   * início do histórico ou depois do prazo de guarda); `'gap'` se a última foto é antiga
+   * demais — o AstCall estava desligado naquele horário e o estado guardado não vale mais.
    */
-  stateAt(
-    server: ServerId,
-    at: number,
-  ): { snapshot: ServerSnapshot; status: ServerConnectionStatus | null } | null {
+  stateAt(server: ServerId, at: number): HistoryState | 'gap' | null {
     const cp = this.stmt.checkpointAt.get(server, at) as
       { ts: number; last_batch: number; data: Uint8Array } | undefined;
     if (!cp) return null;
+    if (at - cp.ts > this.maxGapMs) return 'gap';
     let snapshot = unpack<ServerSnapshot>(cp.data);
     // linhas que começam até `at`; dentro delas, só as alterações até `at`
     const rows = this.stmt.batchesBetween.all(server, cp.last_batch, at) as {
@@ -191,6 +197,12 @@ export class HistoryStore {
 }
 
 const SCHEMA_VERSION = 1;
+
+/** Estado reconstruído num horário e a situação da conexão com o PBX naquele momento. */
+export interface HistoryState {
+  snapshot: ServerSnapshot;
+  status: ServerConnectionStatus | null;
+}
 
 /** Uma gravação de deltas: horário (ms) e as alterações daquele momento. */
 type BatchEntry = [number, DeltaOp[]];

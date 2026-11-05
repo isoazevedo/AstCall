@@ -139,7 +139,8 @@ export interface ActionResultMessage {
  * usuário) e `status`, a situação da conexão com o PBX naquele momento. `from` é o horário
  * mais antigo disponível (ou null, histórico vazio).
  * Erros (`code`): forbidden | unavailable (histórico desligado) | not_found (sem dados no
- * horário: antes do início ou depois do prazo de guarda).
+ * horário: antes do início ou depois do prazo de guarda) | gap (o AstCall não estava gravando
+ * naquele horário, ex.: desligado).
  */
 export interface HistoryStateMessage {
   t: 'history_state';

@@ -50,3 +50,24 @@ export function fromLocalInput(value: string): number | null {
 export function stepLabel(min: number): string {
   return `${min < 0 ? '−' : '+'}${Math.abs(min)} min`;
 }
+
+/** Velocidades da reprodução: 1 s real = N s do histórico. */
+export const PLAY_SPEEDS = [1, 10, 60] as const;
+export type PlaySpeed = (typeof PLAY_SPEEDS)[number];
+
+/** A reprodução avança a cada este tanto de tempo real (um pedido ao servidor por passo). */
+export const PLAY_TICK_MS = 1000;
+
+/**
+ * Próximo horário da reprodução depois de `elapsedMs` de tempo real na velocidade `speed`.
+ * `done` = alcançou o presente (a reprodução para e o painel volta ao vivo).
+ */
+export function nextPlayAt(
+  at: number,
+  speed: PlaySpeed,
+  elapsedMs: number,
+  now: number,
+): { at: number; done: boolean } {
+  const next = at + speed * elapsedMs;
+  return next >= now - 1000 ? { at: now, done: true } : { at: next, done: false };
+}

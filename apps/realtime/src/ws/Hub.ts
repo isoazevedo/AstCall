@@ -343,8 +343,8 @@ class Session implements FeedSubscriber {
     }
     const from = history.firstAt(server);
     const state = history.stateAt(server, at);
-    if (!state) {
-      this.send({ ...reply, ok: false, code: 'not_found', from });
+    if (!state || state === 'gap') {
+      this.send({ ...reply, ok: false, code: state === 'gap' ? 'gap' : 'not_found', from });
       return;
     }
     const scope = this.scopeFor(server);

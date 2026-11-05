@@ -172,14 +172,19 @@ estava em conversa, quantos clientes aguardavam em cada fila, quem estava em pau
 das filas naquele momento. Serve para responder "o que aconteceu às 14:32?" depois de uma
 reclamação ou de um pico.
 
+![Histórico do painel](../img/historico.png)
+
 - Arraste a **barra** (do início do histórico até agora), use os botões **−15 min** a **+5 min**
   ou digite a data e a hora em **Ir para**.
+- **Reproduzir** passa o histórico como um filme, em **1x**, **10x** (1 minuto a cada 6
+  segundos) ou **60x** (1 minuto por segundo). Mexer na barra pausa; ao alcançar o presente, o
+  painel volta ao vivo.
 - Os tempos na tela ("em conversa há 2 min", espera na fila) valem para aquele horário.
 - No histórico **nenhuma ação aparece** (desligar, pausar...): o que está na tela já passou.
 - **Voltar ao vivo** retorna ao tempo real. Os alertas de desconexão continuam funcionando
   normalmente enquanto você revê o histórico.
 - Se o PBX estava desconectado naquele horário, a barra avisa que os dados podem estar
-  incompletos.
+  incompletos. Se o próprio AstCall estava desligado, avisa que não há gravação.
 
 O histórico guarda os últimos **7 dias** (configurável) e precisa da permissão **Ver o histórico**.
 

@@ -261,6 +261,20 @@ const SHOTS: Shot[] = [
       window.scrollBy(0, -90); await wait(500);`,
   },
   {
+    file: 'historico.png',
+    path: '/',
+    theme: 'dark',
+    desc: 'histórico (máquina do tempo)',
+    // 2 min atrás: a demo precisa estar gravando há alguns minutos
+    prepare: `${MONITOR_READY}
+      (await until(() => root().querySelector('.hist-open'))).click();
+      const input = await until(() => root().querySelector('.hist-date input'));
+      const at = new Date(Date.now() - 120000 - new Date().getTimezoneOffset() * 60000);
+      input.value = at.toISOString().slice(0, 19); input.dispatchEvent(new Event('change'));
+      await wait(1500);
+      if (root().querySelector('.hist-msg.error')) throw new Error('sem histórico: deixe a demo rodando alguns minutos');`,
+  },
+  {
     file: 'menu-membro.png',
     path: '/',
     theme: 'dark',
