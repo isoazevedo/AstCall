@@ -15,7 +15,7 @@ navegador ──HTTPS──► Nginx ──► painel (arquivos estáticos)
 
 - Linux (testado em Debian 11/12 e Ubuntu 22.04/24.04), 1 vCPU e 1 GB de RAM bastam para
   centenas de ramais (ver [testes de carga](../CARGA.md)).
-- **Node.js 22 ou superior** (o login standalone usa o SQLite nativo do Node 22).
+- **Node.js 22.5 ou superior** (o login standalone e o histórico usam o SQLite nativo do Node).
 - Nginx e um certificado HTTPS (ex.: Let's Encrypt). O cookie de login só trafega por HTTPS.
 - Acesso AMI ao Asterisk 20 ou 22 — prepare o usuário antes:
   [Configuração do Asterisk](configuracao-asterisk.md).

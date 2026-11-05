@@ -177,11 +177,23 @@ EXTERNAL_JWT_PUBLIC_KEY_FILE=/opt/astcall-keys/azcall-public.pem
 
 ```bash
 pm2 start apps/realtime/dist/main.js --name astcall --cwd /opt/astcall \
+  --interpreter /opt/node22/bin/node \
   --node-args="--disable-warning=ExperimentalWarning" --time
 pm2 save
 ```
 
-> O modo integrado não usa o banco de usuários (`node:sqlite`), então roda em Node 20.
+> **Node 22.5 ou mais novo**: o histórico (máquina do tempo) usa o SQLite nativo do Node
+> (`node:sqlite`). Num Node mais antigo o painel ao vivo funciona, mas o histórico fica
+> desligado (erro no log). Se o Node do servidor é usado por outros serviços do AzCall, instale
+> o 22 **ao lado**, só para o AstCall, e aponte o PM2 para ele (`--interpreter`), como acima:
+>
+> ```bash
+> BASE=https://nodejs.org/dist/latest-v22.x
+> FILE=$(curl -fsSL $BASE/SHASUMS256.txt | grep -o "node-v22[0-9.]*-linux-x64.tar.xz" | head -1)
+> cd /tmp && curl -fsSLO $BASE/$FILE
+> curl -fsSL $BASE/SHASUMS256.txt | grep " $FILE\$" | sha256sum -c -
+> mkdir -p /opt/node22 && tar -xJf $FILE -C /opt/node22 --strip-components=1
+> ```
 
 ### 2.2 Chaves
 

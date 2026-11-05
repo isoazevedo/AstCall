@@ -19,8 +19,10 @@ O AzCall continua dono dos usuários e das permissões; ele emite um "crachá" d
 
 1. **Usuário AMI** do AstCall no Asterisk (sem acesso a comandos de CLI) —
    [Configuração do Asterisk](configuracao-asterisk.md).
-2. **AstCall** em `/opt/astcall`, com Node 20 ou superior e PM2 (o modo integrado não usa o banco
-   de usuários do standalone):
+2. **AstCall** em `/opt/astcall`, com **Node 22.5 ou superior** (o histórico usa o SQLite nativo
+   do Node) e PM2. Se o Node do servidor atende outros serviços do AzCall, instale o 22 ao lado,
+   em `/opt/node22`, só para o AstCall —
+   [comandos no contrato, seção 2.1](../INTEGRACAO_AZCALL.md#21-astcall):
 
    ```bash
    cd /opt/astcall && npm ci
@@ -30,13 +32,15 @@ O AzCall continua dono dos usuários e das permissões; ele emite um "crachá" d
 
    `.env` com `AUTH_MODE=external`, `HTTP_HOST=127.0.0.1`, `HTTP_PORT=8090`, `TRUST_PROXY=true`,
    as credenciais AMI e `EXTERNAL_JWT_PUBLIC_KEY_FILE` (passo 3). Inicie com
-   `pm2 start apps/realtime/dist/main.js --name astcall --cwd /opt/astcall` e `pm2 save`.
+   `pm2 start apps/realtime/dist/main.js --name astcall --cwd /opt/astcall --interpreter /opt/node22/bin/node`
+   e `pm2 save`.
 
 3. **Chaves**: o AzCall assina com a chave privada (fica em `storage/keys/` do AzCall, fora do
    git); o AstCall confere com a pública. Comandos em
    [contrato, seção 2.2](../INTEGRACAO_AZCALL.md#22-chaves).
 4. **AzCall**: variáveis `ASTCALL_*` no `.env` e as migrations de permissões
-   (`161_seed_astcall_permissions.php` e `162_seed_astcall_queue_manage.php`).
+   (`161_seed_astcall_permissions.php`, `162_seed_astcall_queue_manage.php` e
+   `167_seed_astcall_history.php`) — `php console migrate`.
 5. **Apache**: dois proxies no vhost do AzCall — `/astcall/monitor-ws` (WebSocket) e
    `/astcall/static/` — com os módulos `proxy`, `proxy_http` e `proxy_wstunnel`.
    [Trecho pronto](../INTEGRACAO_AZCALL.md#24-apache-vhost-do-azcall-https).

@@ -97,11 +97,21 @@ async function main(): Promise<void> {
   let historyPruneTimer: NodeJS.Timeout | undefined;
   if (config.history) {
     const { dbFile, days } = config.history;
-    history = await HistoryStore.open(dbFile);
-    const prune = () => history?.prune(Date.now() - days * 86_400_000);
-    prune();
-    historyPruneTimer = setInterval(prune, 60 * 60_000);
-    log.info({ file: dbFile, days }, 'Histórico do estado ligado');
+    try {
+      history = await HistoryStore.open(dbFile);
+    } catch (err) {
+      // Ex.: Node sem `node:sqlite` (anterior ao 22.5). O painel ao vivo segue funcionando.
+      log.error(
+        { err: (err as Error).message, node: process.version },
+        'Histórico desligado: não foi possível abrir o banco (requer Node 22.5 ou mais novo)',
+      );
+    }
+    if (history) {
+      const prune = () => history?.prune(Date.now() - days * 86_400_000);
+      prune();
+      historyPruneTimer = setInterval(prune, 60 * 60_000);
+      log.info({ file: dbFile, days }, 'Histórico do estado ligado');
+    }
   }
 
   // ---- Uma conexão AMI + estado sincronizado + feed WebSocket por servidor Asterisk
